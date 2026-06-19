@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
-import { Bai_Jamjuree, Geist, Geist_Mono } from 'next/font/google'
+import { Geist, Geist_Mono, Bai_Jamjuree } from 'next/font/google'
 import './globals.css'
+import { initializeDatabase } from '@/lib/db'
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -19,8 +20,8 @@ const bai = Bai_Jamjuree({
 })
 
 export const metadata: Metadata = {
-  title: 'Nova Bank',
-  description: 'Manage your finances with Nova Bank'
+  title: 'Smart Spend - Banking Solutions',
+  description: 'Manage your finances with Smart Spend'
 }
 
 export default function RootLayout({
@@ -28,6 +29,10 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  
+  // App eka load weddi eka parak meka call wela table eka hadanawa
+  initializeDatabase();
+
   return (
     <html
       lang="en"

@@ -1,141 +1,201 @@
 'use client'
 
-import Image from 'next/image'
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
+import { useState } from 'react'
+
+const LayoutGrid = ({ size = 18 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="3" y="3" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="2" />
+    <rect x="14" y="3" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="2" />
+    <rect x="3" y="14" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="2" />
+    <rect x="14" y="14" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="2" />
+  </svg>
+)
+
+const Settings = ({ size = 20 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+)
+
+const HelpCircle = ({ size = 20 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
+    <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M12 17h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+)
 
 export default function Sidebar() {
   const pathname = usePathname()
-  const router = useRouter()
+  const [activeModal, setActiveModal] = useState<string | null>(null);
 
-  const links = [
-    {
-      name: 'Dashboard',
-      href: '/dashboard',
-      icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6'
-    },
-    {
-      name: 'Bank Transfer',
-      href: '/bank-transfer',
-      icon: 'M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4'
-    },
-    {
-      name: 'Pay Bills',
-      href: '/pay-bills',
-      icon: 'M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2zM10 8.5a.5.5 0 11-1 0 .5.5 0 011 0zm5 5a.5.5 0 11-1 0 .5.5 0 011 0z'
-    },
-    {
-      name: 'Smart Spend',
-      href: '/smart-spend',
-      icon: 'M13 7h8m0 0v8m0-8l-8 8-4-4-6 6'
-    },
-    {
-      name: 'Bank Accounts',
-      href: '/bank-accounts',
-      icon: 'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z'
-    },
-    {
-      name: 'E-Statement',
-      href: '/e-statement',
-      icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'
-    },
-    {
-      name: 'Profile',
-      href: '/profile',
-      icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z'
-    }
+  const menuItems = [
+    { label: 'DASHBOARD', path: '/dashboard' },
+    { label: 'ACCOUNTS', path: '/bank-accounts' },
+    { label: 'BANK TRANSFER', path: '/bank-transfer' },
+    { label: 'PAY BILLS', path: '/pay-bills' },
+    { label: 'SMART SPEND', path: '/smart-spend' },
+    { label: 'E-STATEMENT', path: '/e-statement' },
+    { label: 'SETTINGS', path: '/settings' }
   ]
 
-  const handleLogout = async () => {
-    // The session is an HttpOnly cookie, so it can only be cleared server-side.
-    try {
-      await fetch('/api/auth/logout', { method: 'POST' })
-    } finally {
-      router.push('/login')
-      router.refresh()
-    }
-  }
-
   return (
-    <aside className="w-64 h-full bg-white border-r border-slate-200 flex flex-col pt-8 pb-6 px-4">
-      {/* Brand Logo */}
-      <div className="flex items-center gap-3 px-2 mb-10">
-        <div className="size-8 rounded-lg bg-[#e65a28] flex items-center justify-center">
-          <svg
-            className="w-5 h-5 text-white"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-          </svg>
+    <aside className="w-full md:w-[280px] bg-[#0f0f11] flex flex-col justify-between shrink-0 h-auto md:h-screen sticky top-0 z-50">
+      <div className="flex flex-col flex-1 overflow-y-auto hide-scrollbar">
+        {/* Logo */}
+        <div className="flex items-center gap-3 px-8 pt-10 pb-12">
+          <div className="bg-[#ff5a1f] p-2 rounded-[10px] shrink-0 shadow-lg shadow-[#ff5a1f]/30">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+              <path d="M12 8v4"></path>
+              <path d="M12 16h.01"></path>
+            </svg>
+          </div>
+          <h1 className="text-xl font-extrabold tracking-wide text-white">Nova<span className="text-[#a0a0a0] font-medium">Bank</span></h1>
         </div>
-        <span className="text-xl font-black text-slate-900 tracking-tight">
-          Nova Bank
-        </span>
+
+        {/* Menu */}
+        <nav className="flex flex-row md:flex-col gap-3 px-6 overflow-x-auto md:overflow-visible pb-4 md:pb-0 hide-scrollbar">
+          {menuItems.map((item) => {
+            const isActive = pathname === item.path
+            return (
+              <Link key={item.label} href={item.path} className="no-underline shrink-0">
+                <button 
+                  className={`w-full flex items-center gap-4 px-5 py-3.5 rounded-xl transition-all duration-300 text-[12px] font-bold tracking-[0.05em] uppercase
+                    ${isActive 
+                      ? 'bg-[#ff5a1f] text-white shadow-[0_4px_14px_rgba(255,90,31,0.25)]' 
+                      : 'text-[#8a8a8a] hover:text-white hover:bg-white/5'
+                    }`}
+                >
+                  {item.label === 'DASHBOARD' && <LayoutGrid size={16} />}
+                  {item.label === 'SETTINGS' && <Settings size={16} />}
+                  {item.label}
+                </button>
+              </Link>
+            )
+          })}
+        </nav>
+
+        {/* Promo Card */}
+        <div className="hidden md:block px-6 mt-8 mb-6">
+          <div className="relative overflow-hidden rounded-[18px] p-[1px] group">
+            {/* Animated glowing border */}
+            <div className="absolute inset-0 bg-gradient-to-br from-[#ff5a1f] via-purple-600 to-transparent opacity-30 group-hover:opacity-100 transition-opacity duration-500"></div>
+            
+            {/* Card Content */}
+            <div className="relative bg-[#0f0f11] rounded-[17px] p-5 h-full overflow-hidden">
+              {/* Inner glowing blob */}
+              <div className="absolute -top-10 -right-10 w-32 h-32 bg-[#ff5a1f]/20 rounded-full blur-[30px] group-hover:bg-[#ff5a1f]/30 transition-colors duration-500"></div>
+              
+              <div className="relative z-10">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#ff5a1f] to-purple-600 mb-3 flex items-center justify-center shadow-lg shadow-[#ff5a1f]/20">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="white" stroke="white" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                </div>
+                
+                <h4 className="text-white text-[14px] font-extrabold mb-1.5 leading-snug tracking-wide">
+                  Unlock more with NovaBank benefits
+                </h4>
+                
+                <p className="text-[#8a8a8a] text-[10px] mb-4 leading-relaxed font-medium">
+                  Experience premium banking without limits. Get exclusive rewards today.
+                </p>
+                
+                <button 
+                  onClick={() => setActiveModal('upgrade')}
+                  className="w-full relative group/btn overflow-hidden rounded-[10px] bg-white/5 border border-white/10 text-white text-[11px] font-bold py-2.5 transition-all hover:border-[#ff5a1f]/50"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-[#ff5a1f] to-purple-600 opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300"></div>
+                  <span className="relative z-10 flex items-center justify-center gap-1.5 tracking-wider">
+                    UPGRADE NOW
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="transition-transform group-hover/btn:translate-x-1"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Navigation Links */}
-      <nav className="flex-1 space-y-2">
-        {links.map((link) => {
-          const isActive =
-            pathname === link.href ||
-            (pathname.startsWith(link.href) && link.href !== '/')
-
-          return (
-            <Link
-              key={link.name}
-              href={link.href}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium ${
-                isActive
-                  ? 'bg-orange-50 text-[#e65a28]'
-                  : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
-              }`}
-            >
-              <svg
-                className={`w-5 h-5 ${isActive ? 'text-[#e65a28]' : 'text-slate-400'}`}
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={isActive ? '2.5' : '2'}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d={link.icon}
-                />
-              </svg>
-              {link.name}
-            </Link>
-          )
-        })}
-      </nav>
-
-      {/* Bottom Area: User / Logout */}
-      <div className="mt-auto border-t border-slate-100 pt-4">
-        <button
-          onClick={handleLogout}
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium text-slate-500 hover:bg-red-50 hover:text-red-600 group"
-        >
-          <svg
-            className="w-5 h-5 text-slate-400 group-hover:text-red-500 transition-colors"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-            />
-          </svg>
-          Logout
-        </button>
+      <div className="hidden md:flex gap-6 px-10 pb-10 pt-6 text-[#8a8a8a] items-center border-t border-white/5">
+        <button onClick={() => setActiveModal('settings')} className="hover:text-white transition-colors"><Settings size={22} /></button>
+        <button onClick={() => setActiveModal('help')} className="hover:text-white transition-colors"><HelpCircle size={22} /></button>
       </div>
+
+      {/* Global Sidebar Modal */}
+      {activeModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div 
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in"
+            onClick={() => setActiveModal(null)}
+          ></div>
+          <div className="relative bg-[#17171a] border border-white/10 rounded-3xl p-8 max-w-sm w-full shadow-2xl animate-in zoom-in-95 fade-in duration-200 text-center">
+            <div className="absolute top-4 right-4 cursor-pointer text-[#8a8a8a] hover:text-white" onClick={() => setActiveModal(null)}>
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </div>
+            
+            {activeModal === 'upgrade' && (
+              <>
+                <div className="w-16 h-16 mx-auto bg-gradient-to-br from-[#ff5a1f] to-purple-600 rounded-full flex items-center justify-center mb-6 shadow-lg shadow-[#ff5a1f]/20">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="white" stroke="white" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                </div>
+                <h3 className="text-xl font-bold text-white mb-2">Premium Upgrade</h3>
+                <p className="text-[#8a8a8a] text-sm mb-6">Redirecting to our secure payment gateway to process your premium subscription...</p>
+                <button 
+                  onClick={() => setActiveModal(null)}
+                  className="w-full bg-[#ff5a1f] hover:bg-[#e64a15] text-white font-bold py-3 rounded-xl transition-colors"
+                >
+                  Continue
+                </button>
+              </>
+            )}
+
+            {activeModal === 'settings' && (
+              <>
+                <div className="w-16 h-16 mx-auto bg-white/5 rounded-full flex items-center justify-center mb-6 border border-white/10">
+                  <Settings size={32} />
+                </div>
+                <h3 className="text-xl font-bold text-white mb-2">Settings</h3>
+                <p className="text-[#8a8a8a] text-sm mb-6">The settings module is currently under maintenance. Please try again later.</p>
+                <button 
+                  onClick={() => setActiveModal(null)}
+                  className="w-full bg-white/10 hover:bg-white/15 text-white font-bold py-3 rounded-xl transition-colors"
+                >
+                  Close
+                </button>
+              </>
+            )}
+
+            {activeModal === 'help' && (
+              <>
+                <div className="w-16 h-16 mx-auto bg-white/5 rounded-full flex items-center justify-center mb-6 border border-white/10">
+                  <HelpCircle size={32} />
+                </div>
+                <h3 className="text-xl font-bold text-white mb-2">Help & Support</h3>
+                <p className="text-[#8a8a8a] text-sm mb-6">Our support agents are currently busy. Please leave a message and we'll get back to you.</p>
+                <button 
+                  onClick={() => setActiveModal(null)}
+                  className="w-full bg-[#ff5a1f] hover:bg-[#e64a15] text-white font-bold py-3 rounded-xl transition-colors"
+                >
+                  Chat with Us
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      <style dangerouslySetInnerHTML={{__html: `
+        .hide-scrollbar::-webkit-scrollbar {
+          display: none;
+        }
+        .hide-scrollbar {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+      `}} />
     </aside>
   )
 }

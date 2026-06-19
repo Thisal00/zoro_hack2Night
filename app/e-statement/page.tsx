@@ -1,255 +1,268 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import React, { useState, useEffect } from 'react'
+import Image from 'next/image'
 import Sidebar from '@/components/sidebar'
+import { Bell, Search } from '@/components/Icons'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
 
-const SearchIcon = ({ size = 20 }) => (
-  <svg
-    width={size}
-    height={size}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <circle cx="11" cy="11" r="8" />
-    <path d="m21 21-4.3-4.3" />
-  </svg>
-)
-
-type Account = {
-  account_number: string
-  account_name: string
-  balance: string
-}
-
-type Tx = {
-  id: number
-  from_account: string
-  to_account: string
-  amount: string
-  description: string | null
-  status: string
+type Transaction = {
+  id: string
+  amount: number
+  description: string
+  type: 'credit' | 'debit'
   created_at: string
 }
 
 export default function EStatementPage() {
-  const [accounts, setAccounts] = useState<Account[]>([])
-  const [selected, setSelected] = useState('')
-  const [transactions, setTransactions] = useState<Tx[]>([])
-  const [loadingAccounts, setLoadingAccounts] = useState(true)
-  const [loadingTx, setLoadingTx] = useState(false)
+  const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [balance, setBalance] = useState<number>(0)
+  const [loading, setLoading] = useState(true)
 
+  // Fetch real data from PostgreSQL APIs
   useEffect(() => {
-    async function loadAccounts() {
+    const fetchData = async () => {
       try {
-        const res = await fetch('/api/accounts')
-        const data = await res.json()
-        if (data.ok && data.accounts.length > 0) {
-          setAccounts(data.accounts)
-          setSelected(data.accounts[0].account_number)
+        // Fetch Balance
+        const accRes = await fetch('/api/accounts')
+        const accData = await accRes.json()
+        if (accData.ok && accData.accounts) {
+          const mainAcc = accData.accounts.find((a: any) => a.account_number === '1000003423')
+          if (mainAcc) setBalance(Number(mainAcc.balance))
+        }
+
+        // Fetch Transactions
+        const txRes = await fetch('/api/transactions?account=1000003423')
+        const txData = await txRes.json()
+        if (txData.ok && txData.transactions) {
+          const mapped: Transaction[] = txData.transactions.map((row: any) => ({
+            id: String(row.id),
+            amount: Number(row.amount),
+            description: row.description || 'Unknown',
+            type: row.from_account === '1000003423' ? 'debit' : 'credit',
+            created_at: row.created_at
+          }))
+          setTransactions(mapped)
         }
       } catch (err) {
-        console.error('Failed to load accounts', err)
+        console.error('Failed to fetch statement data', err)
       } finally {
-        setLoadingAccounts(false)
+        setLoading(false)
       }
     }
-    loadAccounts()
+    fetchData()
   }, [])
 
-  useEffect(() => {
-    if (!selected) return
-    async function loadTransactions() {
-      setLoadingTx(true)
-      try {
-        const res = await fetch(`/api/transactions?account=${selected}`)
-        const data = await res.json()
-        if (data.ok) setTransactions(data.transactions)
-        else setTransactions([])
-      } catch (err) {
-        console.error('Failed to load transactions', err)
-        setTransactions([])
-      } finally {
-        setLoadingTx(false)
+  // Calculate Running Balance
+  const calculateRunningBalances = () => {
+    let currentBalance = balance
+    const runningTx = [...transactions]
+    
+    // Transactions are usually ordered by newest first. 
+    // So to calculate running balance, we go from newest to oldest.
+    for (let i = 0; i < runningTx.length; i++) {
+      const tx = runningTx[i]
+      // @ts-ignore
+      tx.runningBalance = currentBalance
+      
+      // Revert the transaction to get the balance BEFORE this transaction
+      if (tx.type === 'credit') {
+        currentBalance -= tx.amount
+      } else {
+        currentBalance += tx.amount
       }
     }
-    loadTransactions()
-  }, [selected])
+    return runningTx
+  }
 
-  const account = accounts.find((a) => a.account_number === selected)
+  const handleDownloadPDF = () => {
+    const doc = new jsPDF()
+    const txWithBalance = calculateRunningBalances()
 
-  const { totalCredits, totalDebits } = useMemo(() => {
-    let credits = 0
-    let debits = 0
-    for (const tx of transactions) {
-      const amt = Number(tx.amount)
-      if (tx.to_account === selected) credits += amt
-      if (tx.from_account === selected) debits += amt
-    }
-    return { totalCredits: credits, totalDebits: debits }
-  }, [transactions, selected])
+    doc.setFontSize(22)
+    doc.setTextColor(255, 90, 31) // Nova Orange
+    doc.text("NovaBank", 14, 20)
+    
+    doc.setFontSize(16)
+    doc.setTextColor(0, 0, 0)
+    doc.text("E-Statement", 14, 30)
 
-  const money = (n: number) =>
-    `Rs. ${n.toLocaleString(undefined, { minimumFractionDigits: 2 })}`
+    doc.setFontSize(10)
+    doc.text(`Account: 1000003423 (Dilara Savings)`, 14, 40)
+    doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 14, 45)
+    doc.text(`Current Balance: Rs. ${balance.toLocaleString('en-US', {minimumFractionDigits: 2})}`, 14, 50)
+
+    // @ts-ignore
+    autoTable(doc, {
+      startY: 55,
+      headStyles: { fillColor: [255, 90, 31] },
+      head: [['Date', 'Description', 'Ref ID', 'Debit (-)', 'Credit (+)', 'Balance']],
+      body: txWithBalance.map((tx: any) => [
+        new Date(tx.created_at).toLocaleDateString(),
+        tx.description,
+        `TRX-${tx.id}`,
+        tx.type === 'debit' ? `Rs. ${tx.amount.toLocaleString()}` : '-',
+        tx.type === 'credit' ? `Rs. ${tx.amount.toLocaleString()}` : '-',
+        `Rs. ${tx.runningBalance.toLocaleString()}`
+      ])
+    })
+
+    doc.save(`NovaBank_Statement_${new Date().toISOString().split('T')[0]}.pdf`)
+  }
+
+  const handleDownloadCSV = () => {
+    const txWithBalance = calculateRunningBalances()
+    const headers = ["Date", "Description", "Ref ID", "Debit", "Credit", "Balance"]
+    
+    let csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n"
+
+    txWithBalance.forEach((tx: any) => {
+      const debit = tx.type === 'debit' ? tx.amount : ''
+      const credit = tx.type === 'credit' ? tx.amount : ''
+      const row = [
+        new Date(tx.created_at).toLocaleDateString(),
+        `"${tx.description}"`, // Quote to handle commas in description
+        `TRX-${tx.id}`,
+        debit,
+        credit,
+        tx.runningBalance
+      ]
+      csvContent += row.join(",") + "\n"
+    })
+
+    const encodedUri = encodeURI(csvContent)
+    const link = document.createElement("a")
+    link.setAttribute("href", encodedUri)
+    link.setAttribute("download", `NovaBank_Statement_${new Date().toISOString().split('T')[0]}.csv`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
 
   return (
-    <div className="flex h-screen w-full bg-slate-50 font-sans text-slate-900 overflow-hidden">
-      <Sidebar />
+    <div className="min-h-screen flex flex-col md:flex-row bg-[#0f0f11] font-sans selection:bg-[#ff5a1f] selection:text-white relative overflow-hidden">
+      {/* Background Image & Overlay */}
+      <div 
+        className="fixed inset-0 z-0 bg-cover bg-center"
+        style={{ backgroundImage: "url('https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=2070&auto=format&fit=crop')" }}
+      ></div>
+      <div className="fixed inset-0 z-0 bg-black/85 backdrop-blur-[2px]"></div>
 
-      <main className="flex-1 overflow-y-auto px-6 py-8 md:px-10 lg:px-12">
-        <header className="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight text-slate-900">
-              E-Statement
-            </h1>
-            <p className="text-sm text-slate-500 mt-1">
-              Review the activity on your accounts.
-            </p>
-          </div>
+      {/* Sidebar */}
+      <div className="relative z-10 shrink-0">
+        <Sidebar />
+      </div>
 
+      {/* Main Content */}
+      <main className="flex-1 relative z-10 flex flex-col overflow-y-auto hide-scrollbar h-screen">
+        {/* Header */}
+        <header className="flex items-center justify-between px-8 py-6 sticky top-0 bg-[#0f0f11]/80 backdrop-blur-md z-40 border-b border-white/5">
+          <h2 className="text-2xl font-bold text-white tracking-wide">E-Statement</h2>
           <div className="flex items-center gap-5">
-            <div className="relative group">
-              <input
-                type="text"
-                placeholder="Search..."
-                className="w-48 md:w-64 rounded-full border border-slate-200 bg-white py-2 pl-10 pr-4 text-sm text-slate-900 placeholder-slate-400 outline-none transition-all focus:border-[#e65a28] focus:ring-1 focus:ring-[#e65a28] shadow-sm"
-              />
-              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#e65a28] transition-colors">
-                <SearchIcon size={16} />
-              </div>
-            </div>
-            <button className="size-10 overflow-hidden rounded-full border-2 border-slate-200 hover:border-[#e65a28] transition-all shadow-sm">
-              <img
-                src="/person-logo.png"
-                alt="profile"
-                className="size-full object-cover"
-              />
+            <button className="text-[#8a8a8a] hover:text-white transition-colors">
+              <Search size={22} />
             </button>
+            <button className="text-[#8a8a8a] hover:text-white transition-colors relative">
+              <Bell size={22} />
+              <span className="absolute top-0 right-0 w-2 h-2 bg-[#ff5a1f] rounded-full border-2 border-[#0f0f11]"></span>
+            </button>
+            <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-white/10 ml-2">
+              <Image src="/avatar.png" alt="Profile" width={40} height={40} className="w-full h-full object-cover" />
+            </div>
           </div>
         </header>
 
-        <div className="max-w-5xl mx-auto space-y-8">
-          {/* Account picker */}
-          <div className="rounded-3xl bg-white border border-slate-200 p-6 shadow-sm flex flex-col sm:flex-row sm:items-end gap-4">
-            <div className="flex-1">
-              <label
-                htmlFor="statement-account"
-                className="mb-2 block text-sm font-medium text-slate-700"
+        <div className="p-8">
+          {/* Controls Bar */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 bg-white/[0.03] backdrop-blur-xl border border-white/10 p-6 rounded-[24px]">
+            <div className="space-y-1">
+              <h3 className="text-white font-bold text-lg">Account: Dilara Savings</h3>
+              <p className="text-[#8a8a8a] text-sm font-mono">1000003423</p>
+            </div>
+            
+            <div className="flex flex-wrap gap-3">
+              <button 
+                onClick={handleDownloadPDF}
+                className="flex items-center gap-2 bg-gradient-to-r from-[#ff5a1f] to-[#e0450e] hover:from-[#e0450e] hover:to-[#c23b0c] text-white font-bold text-xs uppercase tracking-wider py-3 px-5 rounded-xl shadow-lg shadow-[#ff5a1f]/20 transition-all transform hover:-translate-y-0.5"
               >
-                Account
-              </label>
-              <select
-                id="statement-account"
-                value={selected}
-                onChange={(e) => setSelected(e.target.value)}
-                disabled={loadingAccounts || accounts.length === 0}
-                className="w-full bg-slate-50 border border-slate-200 focus:border-[#e65a28] focus:ring-[#e65a28] rounded-xl px-4 py-3 text-slate-900 outline-none transition-all appearance-none cursor-pointer focus:ring-1"
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>
+                Download PDF
+              </button>
+              
+              <button 
+                onClick={handleDownloadCSV}
+                className="flex items-center gap-2 bg-[#217346] hover:bg-[#1a5c38] text-white font-bold text-xs uppercase tracking-wider py-3 px-5 rounded-xl shadow-lg shadow-[#217346]/20 transition-all transform hover:-translate-y-0.5"
               >
-                {accounts.length === 0 && (
-                  <option value="">
-                    {loadingAccounts ? 'Loading…' : 'No accounts'}
-                  </option>
-                )}
-                {accounts.map((a) => (
-                  <option key={a.account_number} value={a.account_number}>
-                    {a.account_name} ({a.account_number})
-                  </option>
-                ))}
-              </select>
-            </div>
-            <button
-              type="button"
-              onClick={() => window.print()}
-              disabled={!account}
-              className="rounded-xl border border-slate-200 bg-white px-6 py-3 font-bold text-slate-700 shadow-sm transition-all hover:bg-slate-50 disabled:opacity-50"
-            >
-              Print / Save PDF
-            </button>
-          </div>
-
-          {/* Summary */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="rounded-3xl bg-white border border-slate-200 p-6 shadow-sm">
-              <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                Closing Balance
-              </h3>
-              <p className="text-3xl font-black text-slate-900">
-                {account ? money(Number(account.balance)) : '—'}
-              </p>
-            </div>
-            <div className="rounded-3xl bg-white border border-slate-200 p-6 shadow-sm">
-              <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                Total Credits
-              </h3>
-              <p className="text-3xl font-black text-green-600">
-                {money(totalCredits)}
-              </p>
-            </div>
-            <div className="rounded-3xl bg-white border border-slate-200 p-6 shadow-sm">
-              <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                Total Debits
-              </h3>
-              <p className="text-3xl font-black text-[#e65a28]">
-                {money(totalDebits)}
-              </p>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="8" y1="13" x2="16" y2="17"></line><line x1="16" y1="13" x2="8" y2="17"></line></svg>
+                Download Excel (CSV)
+              </button>
             </div>
           </div>
 
-          {/* Transactions table */}
-          <div className="rounded-3xl bg-white border border-slate-200 p-8 shadow-sm">
-            <h3 className="text-xl font-bold text-slate-900 mb-6">
-              Transaction Details
-            </h3>
-            {loadingTx ? (
-              <p className="text-slate-500 text-center py-8">
-                Loading transactions…
-              </p>
-            ) : transactions.length === 0 ? (
-              <p className="text-slate-500 text-center py-8">
-                No transactions for this account.
-              </p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[640px] text-left text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-200 text-slate-500">
-                      <th className="pb-3 font-medium">Date</th>
-                      <th className="pb-3 font-medium">Description</th>
-                      <th className="pb-3 font-medium">Reference</th>
-                      <th className="pb-3 font-medium text-right">Debit</th>
-                      <th className="pb-3 font-medium text-right">Credit</th>
+          {/* Statement Table */}
+          <div className="bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-[24px] overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-white/10 bg-white/5">
+                    <th className="py-4 px-6 font-bold text-xs text-[#8a8a8a] uppercase tracking-wider">Date</th>
+                    <th className="py-4 px-6 font-bold text-xs text-[#8a8a8a] uppercase tracking-wider">Description</th>
+                    <th className="py-4 px-6 font-bold text-xs text-[#8a8a8a] uppercase tracking-wider">Ref ID</th>
+                    <th className="py-4 px-6 font-bold text-xs text-[#8a8a8a] uppercase tracking-wider text-right">Debit (-)</th>
+                    <th className="py-4 px-6 font-bold text-xs text-[#8a8a8a] uppercase tracking-wider text-right">Credit (+)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {loading ? (
+                    <tr>
+                      <td colSpan={5} className="py-12 text-center text-[#8a8a8a]">Loading statement data...</td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {transactions.map((tx) => {
-                      const isDebit = tx.from_account === selected
-                      const amt = Number(tx.amount)
-                      return (
-                        <tr
-                          key={tx.id}
-                          className="border-b border-slate-100 last:border-0"
-                        >
-                          <td className="py-3 text-slate-600">
-                            {new Date(tx.created_at).toLocaleDateString()}
-                          </td>
-                          <td className="py-3 text-slate-900 font-medium">
-                            {tx.description || '—'}
-                          </td>
-                          <td className="py-3 text-slate-400">#{tx.id}</td>
-                          <td className="py-3 text-right text-[#e65a28] font-semibold">
-                            {isDebit ? money(amt) : '—'}
-                          </td>
-                          <td className="py-3 text-right text-green-600 font-semibold">
-                            {!isDebit ? money(amt) : '—'}
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
+                  ) : transactions.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="py-12 text-center text-[#8a8a8a]">No transactions found.</td>
+                    </tr>
+                  ) : (
+                    transactions.map((tx) => (
+                      <tr key={tx.id} className="hover:bg-white/5 transition-colors group">
+                        <td className="py-4 px-6 text-sm text-[#8a8a8a] whitespace-nowrap">
+                          {new Date(tx.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+                        </td>
+                        <td className="py-4 px-6 text-sm text-white font-medium">
+                          {tx.description}
+                        </td>
+                        <td className="py-4 px-6 text-xs text-[#8a8a8a] font-mono">
+                          TRX-{tx.id.padStart(6, '0')}
+                        </td>
+                        <td className="py-4 px-6 text-sm font-medium text-right">
+                          {tx.type === 'debit' ? (
+                            <span className="text-white">Rs. {tx.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                          ) : '-'}
+                        </td>
+                        <td className="py-4 px-6 text-sm font-medium text-right">
+                          {tx.type === 'credit' ? (
+                            <span className="text-emerald-400">Rs. {tx.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                          ) : '-'}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+            
+            {/* Footer Summary */}
+            {!loading && (
+              <div className="border-t border-white/10 bg-black/40 p-6 flex flex-col md:flex-row items-center justify-between gap-4">
+                <div className="text-[#8a8a8a] text-sm">
+                  Showing {transactions.length} transactions
+                </div>
+                <div className="flex items-center gap-4 bg-white/5 rounded-xl px-5 py-3 border border-white/5">
+                  <span className="text-[#8a8a8a] text-sm font-bold uppercase tracking-wider">Closing Balance</span>
+                  <span className="text-2xl font-bold text-white tracking-wide">
+                    Rs. {balance.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
               </div>
             )}
           </div>

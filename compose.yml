@@ -11,8 +11,6 @@ services:
     environment:
       NODE_ENV: development
       PORT: "3000"
-      # DATABASE_URL comes from .env.local (env_file) so it matches the
-      # POSTGRES_* credentials the db service is created with.
     ports:
       - "3000:3000"
     volumes:

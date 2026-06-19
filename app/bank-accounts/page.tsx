@@ -1,55 +1,76 @@
 'use client'
 
+import React, { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import React, { useEffect, useState } from 'react'
+import Image from 'next/image'
 import Sidebar from '@/components/sidebar'
-
-// Modern icons
-const Bell = ({ size = 20 }) => (
-  <svg
-    width={size}
-    height={size}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
-    <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
-  </svg>
-)
-
-const SearchIcon = ({ size = 20 }) => (
-  <svg
-    width={size}
-    height={size}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <circle cx="11" cy="11" r="8" />
-    <path d="m21 21-4.3-4.3" />
-  </svg>
-)
+import { Search, Bell } from '@/components/Icons'
 
 type Screen = 'list' | 'add' | 'edit'
+
+type BankAccount = {
+  id: string;
+  accountNumber: string;
+  accountName: string;
+  email: string;
+  nickname: string;
+  balance?: string | number;
+}
+
+type MyAccount = {
+  id: string;
+  account_number: string;
+  account_name: string;
+  balance: string;
+}
 
 export default function AccountsPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
 
+  // Screen state
   const [screen, setScreen] = useState<Screen>('list')
+
+  // Check if we're in edit mode from URL
   const isEditMode = searchParams.get('mode') === 'edit'
+  const isAddMode = searchParams.get('mode') === 'add'
   const accountNumberParam = searchParams.get('accountNumber') || ''
   const nicknameParam = searchParams.get('nickname') || ''
   const accountNameParam = searchParams.get('accountName') || ''
   const emailParam = searchParams.get('email') || ''
+  const editIdParam = searchParams.get('id') || ''
 
+  // Accounts State
+  const [accounts, setAccounts] = useState<BankAccount[]>([])
+  const [myAccounts, setMyAccounts] = useState<MyAccount[]>([])
+
+  const fetchAccounts = async () => {
+    try {
+      const [payeesRes, myAccsRes] = await Promise.all([
+        fetch(`/api/payees?t=${Date.now()}`),
+        fetch(`/api/accounts?t=${Date.now()}`)
+      ])
+      
+      const payeesData = await payeesRes.json()
+      if (payeesData.ok && payeesData.payees) {
+        setAccounts(payeesData.payees)
+      }
+
+      const myAccsData = await myAccsRes.json()
+      if (myAccsData.ok && myAccsData.accounts) {
+        setMyAccounts(myAccsData.accounts)
+      }
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
+  // Load from DB
+  useEffect(() => {
+    fetchAccounts()
+  }, [])
+
+  // Form data state
   const [formData, setFormData] = useState({
     accountNumber: '',
     accountName: '',
@@ -57,8 +78,10 @@ export default function AccountsPage() {
     nickname: ''
   })
 
+  // Edit nickname state
   const [nickname, setNickname] = useState('')
 
+  // Validation errors state
   const [errors, setErrors] = useState({
     accountNumber: '',
     accountName: '',
@@ -66,36 +89,8 @@ export default function AccountsPage() {
     nickname: ''
   })
 
-  const [accounts, setAccounts] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  const [showNotifications, setShowNotifications] = useState(false)
-
-  function getCookie(name: string) {
-    if (typeof document === 'undefined') return null
-    const value = `; ${document.cookie}`
-    const parts = value.split(`; ${name}=`)
-    if (parts.length === 2) return parts.pop()?.split(';').shift()
-    return null
-  }
-
-  const loadAccounts = async () => {
-    setLoading(true)
-    const userId = getCookie('user_id') || '1'
-    try {
-      const res = await fetch(`/api/accounts?userId=${userId}`)
-      const data = await res.json()
-      if (data.ok) {
-        setAccounts(data.accounts)
-      }
-    } catch (err) {
-      console.error('Failed to load accounts', err)
-    } finally {
-      setLoading(false)
-    }
-  }
-
+  // Load data if in edit mode
   useEffect(() => {
-    loadAccounts()
     if (isEditMode) {
       setFormData({
         accountNumber: accountNumberParam,
@@ -105,42 +100,53 @@ export default function AccountsPage() {
       })
       setNickname(nicknameParam || accountNameParam)
       setScreen('edit')
+    } else if (isAddMode) {
+      setScreen('add')
+    } else {
+      setScreen('list')
     }
   }, [
     isEditMode,
+    isAddMode,
     accountNumberParam,
     accountNameParam,
     emailParam,
     nicknameParam
   ])
 
+  // ===== VALIDATION FUNCTIONS =====
   const validateField = (name: string, value: string) => {
     let error = ''
+
     switch (name) {
       case 'accountNumber':
-        if (!value.trim()) error = 'Account number is required'
-        else if (!/^\d+$/.test(value)) error = 'Must contain only numbers'
-        else if (value.length < 8 || value.length > 20)
-          error = 'Must be between 8 and 20 digits'
+        if (!value.trim()) {
+          error = 'Account number is required'
+        }
         break
+
       case 'accountName':
-        if (!value.trim()) error = 'Account name is required'
-        else if (value.trim().length < 2)
-          error = 'Must be at least 2 characters'
-        else if (!/^[a-zA-Z\s]+$/.test(value))
-          error = 'Must contain only letters and spaces'
+        if (!value.trim()) {
+          error = 'Account name is required'
+        }
         break
+
       case 'email':
-        if (!value.trim()) error = 'Email is required'
-        else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))
-          error = 'Please enter a valid email'
+        if (!value.trim()) {
+          error = 'Email is required'
+        }
         break
+
       case 'nickname':
-        if (!value.trim()) error = 'Nickname is required'
-        else if (value.trim().length < 2)
-          error = 'Must be at least 2 characters'
+        if (!value.trim()) {
+          error = 'Nickname is required'
+        }
+        break
+
+      default:
         break
     }
+
     return error
   }
 
@@ -151,77 +157,133 @@ export default function AccountsPage() {
       email: validateField('email', formData.email),
       nickname: validateField('nickname', formData.nickname)
     }
+
     setErrors(newErrors)
+
+    // Return true if no errors
     return !Object.values(newErrors).some((error) => error !== '')
   }
 
+  // ===== RESET FORM FUNCTION =====
   const resetForm = () => {
-    setFormData({ accountNumber: '', accountName: '', email: '', nickname: '' })
+    setFormData({
+      accountNumber: '',
+      accountName: '',
+      email: '',
+      nickname: ''
+    })
     setNickname('')
-    setErrors({ accountNumber: '', accountName: '', email: '', nickname: '' })
+    setErrors({
+      accountNumber: '',
+      accountName: '',
+      email: '',
+      nickname: ''
+    })
   }
 
+  // ===== NAVIGATION FUNCTIONS =====
   const goToList = () => {
     resetForm()
     setScreen('list')
     router.push('/bank-accounts')
   }
+
   const goToAdd = () => {
     resetForm()
     setScreen('add')
     router.push('/bank-accounts?mode=add')
   }
+
   const goToEdit = () => {
     setScreen('edit')
     router.push('/bank-accounts?mode=edit')
   }
 
+  // ===== FORM HANDLERS =====
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
-    if (errors[name as keyof typeof errors])
-      setErrors((prev) => ({ ...prev, [name]: '' }))
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value
+    }))
+
+    // Clear error for this field when user starts typing
+    if (errors[name as keyof typeof errors]) {
+      setErrors((prev) => ({
+        ...prev,
+        [name]: ''
+      }))
+    }
   }
 
   const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
     const { name, value } = e.target
-    setErrors((prev) => ({ ...prev, [name]: validateField(name, value) }))
+    const error = validateField(name, value)
+    setErrors((prev) => ({
+      ...prev,
+      [name]: error
+    }))
   }
 
   const handleAddAccount = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!validateForm()) return
+
+    if (!validateForm()) {
+      return
+    }
+
     try {
-      const userId = getCookie('user_id') || '1'
-      const res = await fetch('/api/accounts/add', {
+      const res = await fetch('/api/payees', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId: Number(userId),
           accountNumber: formData.accountNumber,
-          accountName: formData.nickname || formData.accountName
+          accountName: formData.accountName,
+          nickname: formData.nickname,
+          email: formData.email
         })
       })
       const data = await res.json()
-      if (res.ok && data.ok) {
+      if (data.ok) {
         alert('Account added successfully!')
         resetForm()
-        loadAccounts()
         goToList()
-      } else {
-        alert(data.message || 'Failed to add account')
+        fetchAccounts()
       }
     } catch (err) {
-      alert('Network error occurred')
+      console.error(err)
+      alert('Failed to add account')
+    }
+  }
+
+  const handleDeleteAccount = async (id: string) => {
+    if (confirm('Are you sure you want to delete this account?')) {
+      try {
+        const res = await fetch('/api/payees', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'delete', id })
+        })
+        const data = await res.json()
+        if (data.ok) {
+          fetchAccounts()
+        }
+      } catch (err) {
+        console.error(err)
+      }
     }
   }
 
   const handleUpdateAccount = (e: React.FormEvent) => {
     e.preventDefault()
+
+    // Check if at least account number is filled
     if (!formData.accountNumber.trim()) {
       alert('Please enter an account number first')
       return
     }
+
+    // Navigate to edit mode with whatever data is filled
     router.push(
       `/bank-accounts?mode=edit&accountNumber=${formData.accountNumber}&accountName=${formData.accountName || ''}&email=${formData.email || ''}&nickname=${formData.nickname || ''}`
     )
@@ -229,430 +291,388 @@ export default function AccountsPage() {
 
   const handleEditNickname = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!nickname.trim() || nickname.trim().length < 2) {
-      alert('Valid nickname is required')
+
+    if (!nickname.trim()) {
+      alert('Please enter a nickname')
       return
     }
+
+    if (nickname.trim().length < 2) {
+      alert('Nickname must be at least 2 characters')
+      return
+    }
+
     try {
-      const userId = getCookie('user_id') || '1'
-      const res = await fetch('/api/accounts/update', {
-        method: 'PUT',
+      const res = await fetch('/api/payees', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId: Number(userId),
-          accountNumber: formData.accountNumber,
-          newNickname: nickname
+          action: 'edit',
+          id: editIdParam,
+          accountNumber: accountNumberParam,
+          accountName: accountNameParam,
+          nickname: nickname
         })
       })
       const data = await res.json()
-      if (res.ok && data.ok) {
-        alert(`Nickname updated to: ${nickname}`)
+      if (data.ok) {
+        alert('Nickname updated successfully!')
         resetForm()
-        loadAccounts()
         goToList()
-      } else {
-        alert(data.message || 'Failed to update nickname')
+        fetchAccounts()
       }
     } catch (err) {
-      alert('Network error occurred')
+      console.error(err)
+      alert('Failed to update nickname')
     }
   }
 
-  const handleDeleteAccount = async (accountNumber: string) => {
-    if (!confirm('Are you sure you want to delete this account?')) return
-    try {
-      const userId = getCookie('user_id') || '1'
-      const res = await fetch(
-        `/api/accounts/delete?userId=${userId}&accountNumber=${accountNumber}`,
-        {
-          method: 'DELETE'
-        }
-      )
-      const data = await res.json()
-      if (res.ok && data.ok) {
-        alert('Account deleted successfully!')
-        loadAccounts()
-      } else {
-        alert(data.message || 'Failed to delete account')
-      }
-    } catch (err) {
-      alert('Network error occurred')
-    }
+  const handleCancel = () => {
+    resetForm()
+    goToList()
   }
 
   return (
-    <div className="flex h-screen w-full bg-slate-50 font-sans text-slate-900 overflow-hidden">
+    <div className="min-h-screen flex flex-col md:flex-row bg-[#0f0f11] font-sans selection:bg-[#ff5a1f] selection:text-white relative overflow-hidden">
+      {/* Background Image & Overlay */}
+      <div 
+        className="fixed inset-0 z-0 bg-cover bg-center"
+        style={{ backgroundImage: "url('https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=2070&auto=format&fit=crop')" }}
+      ></div>
+      <div className="fixed inset-0 z-0 bg-black/85 backdrop-blur-[2px]"></div>
+
+      {/* Sidebar */}
       <Sidebar />
 
-      <main className="flex-1 overflow-y-auto px-6 py-8 md:px-10 lg:px-12">
-        <header className="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+      {/* Main Content */}
+      <main className="flex-1 p-8 md:p-12 relative z-10 h-screen overflow-y-auto custom-scrollbar scroll-smooth">
+        
+        {/* Header */}
+        <header className="flex justify-between items-start mb-10 relative">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-slate-900">
-              Accounts
-            </h1>
-            <p className="text-sm text-slate-500 mt-1">
-              Manage your linked bank accounts and balances.
-            </p>
+            <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">Linked Accounts</h1>
+            <p className="text-[#8a8a8a] text-sm">Manage your external bank accounts and payees.</p>
           </div>
-
-          <div className="flex items-center gap-5">
-            <div className="relative group">
-              <input
-                type="text"
-                placeholder="Search..."
-                className="w-48 md:w-64 rounded-full border border-slate-200 bg-white py-2 pl-10 pr-4 text-sm text-slate-900 placeholder-slate-400 outline-none transition-all focus:border-[#e65a28] focus:ring-1 focus:ring-[#e65a28] shadow-sm"
-              />
-              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#e65a28] transition-colors">
-                <SearchIcon size={16} />
-              </div>
-            </div>
-
-            <div className="relative">
-              <button
-                onClick={() => setShowNotifications(!showNotifications)}
-                className="relative flex size-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-900 transition-all shadow-sm"
-              >
-                <Bell size={18} />
-                <span className="absolute right-2 top-2 size-2 rounded-full bg-[#e65a28]" />
-              </button>
-
-              {showNotifications && (
-                <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden z-50">
-                  <div className="p-4 border-b border-slate-100">
-                    <h3 className="font-bold text-slate-900">Notifications</h3>
-                  </div>
-                  <div className="p-2 space-y-1">
-                    <div className="p-3 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer">
-                      <p className="text-sm font-medium text-slate-900">
-                        Account Verified
-                      </p>
-                      <p className="text-xs text-slate-500 mt-1">
-                        Your new account has been verified.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <button className="size-10 overflow-hidden rounded-full border-2 border-slate-200 hover:border-[#e65a28] transition-all shadow-sm">
-              <img
-                src="/person-logo.png"
-                alt="profile"
-                className="size-full object-cover"
-              />
+          <div className="flex items-center gap-6 mt-1">
+            <button className="text-[#8a8a8a] hover:text-white transition-colors">
+              <Search size={20} />
+            </button>
+            <button className="text-[#8a8a8a] hover:text-white transition-colors relative">
+              <Bell size={20} />
+              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-[#ff5a1f] rounded-full border-2 border-[#111]"></span>
+            </button>
+            <button className="w-10 h-10 rounded-full border border-white/20 overflow-hidden cursor-pointer hover:border-[#ff5a1f] transition-colors focus:outline-none">
+              <img src="https://i.pravatar.cc/150?u=dilara" alt="profile" className="w-full h-full object-cover" />
             </button>
           </div>
         </header>
 
-        <div className="max-w-5xl mx-auto">
-          {screen === 'list' && (
+        {/* ===== LIST SCREEN ===== */}
+        {screen === 'list' && (
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+            
+            {/* --- MY ACCOUNTS SECTION --- */}
+            <div className="mb-10">
+              <h2 className="text-xl font-bold text-white mb-4">My Accounts</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {myAccounts.map((acc) => (
+                  <div key={acc.id} className="bg-gradient-to-br from-[#ff5a1f] to-[#cc4616] rounded-3xl p-6 shadow-2xl relative overflow-hidden group hover:-translate-y-1 transition-transform">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-[40px] opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    
+                    <div className="flex justify-between items-start mb-8 relative z-10">
+                      <div>
+                        <p className="text-white/80 text-xs font-bold tracking-wider uppercase mb-1">Total Balance</p>
+                        <h3 className="text-3xl font-bold text-white">Rs. {Number(acc.balance).toLocaleString('en-US', { minimumFractionDigits: 2 })}</h3>
+                      </div>
+                      <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg>
+                      </div>
+                    </div>
+
+                    <div className="relative z-10 flex justify-between items-end">
+                      <div>
+                        <p className="text-white font-bold text-sm">{acc.account_name}</p>
+                        <p className="text-white/70 text-xs font-mono tracking-widest mt-1">**** {acc.account_number.slice(-4)}</p>
+                      </div>
+                      <div className="px-3 py-1 bg-black/20 rounded-full">
+                        <p className="text-[10px] text-white font-bold uppercase tracking-wider">Active</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* --- LINKED PAYEES SECTION --- */}
+            <h2 className="text-xl font-bold text-white mb-4">External Payees</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {loading ? (
-                <div className="col-span-full flex items-center justify-center py-20 text-slate-400">
-                  Loading accounts...
-                </div>
-              ) : accounts.length === 0 ? (
-                <div className="col-span-full flex items-center justify-center py-20 text-slate-400">
-                  No accounts found.
-                </div>
-              ) : (
-                accounts.map((acc, idx) => (
-                  <div
-                    key={idx}
-                    className="group relative overflow-hidden rounded-3xl bg-white border border-slate-200 p-6 shadow-sm transition-all hover:-translate-y-1 hover:border-[#e65a28] hover:shadow-md"
-                  >
-                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#e65a28] to-orange-500 opacity-0 transition-opacity group-hover:opacity-100" />
-
-                    <div className="flex justify-between items-start mb-6">
-                      <div className="size-12 rounded-full bg-slate-50 flex items-center justify-center p-2 border border-slate-100">
-                        <img
-                          src="/account-logo.png"
-                          alt="bank logo"
-                          className="size-full object-contain"
-                        />
-                      </div>
-                      <div className="flex gap-2">
-                        <button
-                          className="size-8 flex items-center justify-center rounded-full bg-slate-50 text-slate-400 hover:bg-slate-100 hover:text-slate-900 transition-all border border-slate-100"
-                          onClick={() => {
-                            setFormData({
-                              ...formData,
-                              accountNumber: acc.account_number,
-                              accountName: acc.account_name
-                            })
-                            setNickname(acc.account_name)
-                            goToEdit()
-                          }}
-                          title="Edit Nickname"
-                        >
-                          <svg
-                            width="14"
-                            height="14"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-                            <path d="m15 5 4 4" />
-                          </svg>
-                        </button>
-                        <button
-                          className="size-8 flex items-center justify-center rounded-full bg-slate-50 text-slate-400 hover:bg-red-50 hover:text-red-500 transition-all border border-slate-100 hover:border-red-100"
-                          onClick={() =>
-                            handleDeleteAccount(acc.account_number)
-                          }
-                          title="Delete Account"
-                        >
-                          <svg
-                            width="14"
-                            height="14"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <path d="M3 6h18" />
-                            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-                            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-                            <line x1="10" y1="11" x2="10" y2="17" />
-                            <line x1="14" y1="11" x2="14" y2="17" />
-                          </svg>
-                        </button>
+              
+              {/* Render Existing Accounts */}
+              {accounts.map((acc) => (
+                <div key={acc.id} className="bg-[#17171a] rounded-3xl p-6 shadow-2xl border border-white/5 relative overflow-hidden group hover:-translate-y-1.5 transition-all duration-300 hover:border-[#ff5a1f]/30">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/10 rounded-full blur-[40px] opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                  
+                  <div className="flex justify-between items-start mb-6 relative z-10">
+                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#ff5a1f] to-purple-600 p-[2px] shadow-lg shadow-[#ff5a1f]/20">
+                      <div className="w-full h-full bg-[#111] rounded-[14px] overflow-hidden flex items-center justify-center">
+                        <span className="text-xl font-bold text-white uppercase">{acc.nickname.substring(0, 2)}</span>
                       </div>
                     </div>
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => {
+                          router.push(`/bank-accounts?mode=edit&id=${acc.id}&accountNumber=${acc.accountNumber}&nickname=${acc.nickname}`)
+                        }} 
+                        className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/70 hover:text-white transition-colors border border-white/5"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteAccount(acc.id)}
+                        className="w-8 h-8 rounded-full bg-red-500/10 hover:bg-red-500/20 flex items-center justify-center text-red-500 hover:text-red-400 transition-colors border border-red-500/10"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                      </button>
+                    </div>
+                  </div>
 
-                    <div>
-                      <h3 className="text-xl font-bold text-slate-900 mb-1 truncate">
-                        {acc.account_name}
-                      </h3>
-                      <p className="text-sm font-mono text-slate-500 mb-6 tracking-widest">
-                        {acc.account_number}
-                      </p>
-
-                      <div className="pt-4 border-t border-slate-100 flex justify-between items-end">
-                        <span className="text-xs text-slate-400 uppercase tracking-wider font-semibold">
-                          Available Balance
-                        </span>
-                        <span className="text-lg font-bold text-[#e65a28]">
-                          Rs. {Number(acc.balance).toLocaleString()}
-                        </span>
+                  <div className="relative z-10">
+                    <h2 className="text-xl font-bold !text-white mb-1">{acc.nickname}</h2>
+                    <div className="flex justify-between items-center mb-4">
+                      <p className="text-sm text-[#8a8a8a]">{acc.accountName}</p>
+                      {acc.balance !== undefined && (
+                        <p className="text-[#ff5a1f] font-bold text-sm">
+                          Rs. {Number(acc.balance).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                        </p>
+                      )}
+                    </div>
+                    
+                    <div className="bg-white/5 rounded-xl p-3 border border-white/5 flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-[#ff5a1f]/10 flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ff5a1f" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-[#8a8a8a] font-bold tracking-wider uppercase">Linked Account</p>
+                        <p className="text-sm font-mono text-white tracking-widest">**** {acc.accountNumber.slice(-4)}</p>
                       </div>
                     </div>
                   </div>
-                ))
-              )}
+                </div>
+              ))}
 
-              <button
+              {/* Add Account Button Card */}
+              <button 
                 onClick={goToAdd}
-                className="group flex flex-col items-center justify-center rounded-3xl border-2 border-dashed border-slate-200 bg-transparent p-6 shadow-none transition-all hover:border-[#e65a28] hover:bg-orange-50 min-h-[220px]"
+                className="bg-transparent border-2 border-dashed border-white/10 rounded-3xl p-6 flex flex-col items-center justify-center min-h-[240px] hover:border-[#ff5a1f]/50 hover:bg-[#ff5a1f]/5 transition-all duration-300 group"
               >
-                <div className="flex size-14 items-center justify-center rounded-full bg-slate-50 text-slate-400 group-hover:bg-[#e65a28] group-hover:text-white transition-all mb-4 border border-slate-100 group-hover:border-[#e65a28]">
-                  <svg
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M5 12h14" />
-                    <path d="M12 5v14" />
-                  </svg>
+                <div className="w-14 h-14 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mb-4 group-hover:scale-110 group-hover:bg-[#ff5a1f] transition-all duration-300 shadow-lg">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                 </div>
-                <h3 className="text-lg font-semibold text-slate-500 group-hover:text-[#e65a28] transition-colors">
-                  Add Bank Account
-                </h3>
+                <h2 className="text-[15px] font-bold !text-white mb-1 group-hover:!text-[#ff5a1f] transition-colors">Add New Account</h2>
+                <p className="text-xs text-[#666] text-center px-4">Link another bank account to transfer funds seamlessly.</p>
               </button>
+
             </div>
-          )}
+          </div>
+        )}
 
-          {screen === 'add' && (
-            <div className="max-w-2xl mx-auto">
-              <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm relative overflow-hidden">
-                <div className="absolute -top-20 -right-20 size-64 rounded-full bg-orange-50 blur-[80px] pointer-events-none" />
-
-                <h2 className="text-2xl font-bold text-slate-900 mb-8">
-                  Add Another Bank Account
-                </h2>
-
-                <form className="relative z-10 space-y-5">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    <div className="col-span-full">
-                      <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                        Bank Account Number
-                      </label>
-                      <input
-                        type="text"
-                        name="accountNumber"
-                        value={formData.accountNumber}
-                        onChange={handleChange}
-                        onBlur={handleBlur}
-                        className={`w-full bg-slate-50 border ${errors.accountNumber ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-slate-200 focus:border-[#e65a28] focus:ring-[#e65a28]'} rounded-xl px-4 py-3 text-slate-900 placeholder-slate-400 outline-none transition-all focus:ring-1`}
-                        placeholder="Enter account number"
-                      />
-                      {errors.accountNumber && (
-                        <p className="text-xs text-red-500 mt-1">
-                          {errors.accountNumber}
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="col-span-full md:col-span-1">
-                      <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                        Bank Account Name
-                      </label>
-                      <input
-                        type="text"
-                        name="accountName"
-                        value={formData.accountName}
-                        onChange={handleChange}
-                        onBlur={handleBlur}
-                        className={`w-full bg-slate-50 border ${errors.accountName ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-slate-200 focus:border-[#e65a28] focus:ring-[#e65a28]'} rounded-xl px-4 py-3 text-slate-900 placeholder-slate-400 outline-none transition-all focus:ring-1`}
-                        placeholder="Account holder name"
-                      />
-                      {errors.accountName && (
-                        <p className="text-xs text-red-500 mt-1">
-                          {errors.accountName}
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="col-span-full md:col-span-1">
-                      <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                        Email
-                      </label>
-                      <input
-                        type="email"
-                        name="email"
-                        value={formData.email}
-                        onChange={handleChange}
-                        onBlur={handleBlur}
-                        className={`w-full bg-slate-50 border ${errors.email ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-slate-200 focus:border-[#e65a28] focus:ring-[#e65a28]'} rounded-xl px-4 py-3 text-slate-900 placeholder-slate-400 outline-none transition-all focus:ring-1`}
-                        placeholder="Email address"
-                      />
-                      {errors.email && (
-                        <p className="text-xs text-red-500 mt-1">
-                          {errors.email}
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="col-span-full">
-                      <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                        Nickname
-                      </label>
-                      <input
-                        type="text"
-                        name="nickname"
-                        value={formData.nickname}
-                        onChange={handleChange}
-                        onBlur={handleBlur}
-                        className={`w-full bg-slate-50 border ${errors.nickname ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-slate-200 focus:border-[#e65a28] focus:ring-[#e65a28]'} rounded-xl px-4 py-3 text-slate-900 placeholder-slate-400 outline-none transition-all focus:ring-1`}
-                        placeholder="E.g., Savings Account"
-                      />
-                      {errors.nickname && (
-                        <p className="text-xs text-red-500 mt-1">
-                          {errors.nickname}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col sm:flex-row gap-4 mt-8 pt-6 border-t border-slate-100">
-                    <button
-                      type="button"
-                      onClick={goToList}
-                      className="w-full sm:w-auto rounded-xl border border-slate-200 bg-white px-8 py-3.5 font-bold text-slate-700 shadow-sm transition-all hover:bg-slate-50 hover:text-slate-900"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleAddAccount}
-                      className="w-full sm:w-auto rounded-xl bg-[#e65a28] px-8 py-3.5 font-bold text-white shadow-md shadow-orange-500/20 transition-all hover:bg-[#d44d1e] hover:shadow-lg hover:shadow-orange-500/30"
-                    >
-                      Add Account
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleUpdateAccount}
-                      className="w-full sm:w-auto rounded-xl border border-slate-200 bg-slate-50 px-8 py-3.5 font-bold text-slate-700 transition-all hover:bg-slate-100"
-                    >
-                      Update Existing
-                    </button>
-                  </div>
-                </form>
+        {/* ===== ADD SCREEN ===== */}
+        {screen === 'add' && (
+          <div className="max-w-2xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="bg-[#17171a] rounded-3xl p-8 shadow-2xl border border-white/5 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-[#ff5a1f]/5 rounded-full blur-[80px] pointer-events-none"></div>
+              
+              <div className="flex items-center gap-4 mb-8">
+                <button onClick={handleCancel} className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-white hover:bg-white/10 transition-colors border border-white/10">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+                </button>
+                <h2 className="text-2xl font-bold !text-white tracking-tight">Add Bank Account</h2>
               </div>
-            </div>
-          )}
 
-          {screen === 'edit' && (
-            <div className="max-w-xl mx-auto">
-              <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm relative overflow-hidden">
-                <div className="absolute -top-20 -right-20 size-64 rounded-full bg-orange-50 blur-[80px] pointer-events-none" />
-
-                <h2 className="text-2xl font-bold text-slate-900 mb-8">
-                  Edit Nickname
-                </h2>
-
-                <form
-                  onSubmit={handleEditNickname}
-                  className="relative z-10 space-y-6"
-                >
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                      Bank Account Number
-                    </label>
+              <form onSubmit={handleAddAccount} className="space-y-6 relative z-10">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Account Number */}
+                  <div className="space-y-2">
+                    <label htmlFor="accountNumber" className="text-[11px] text-[#8a8a8a] font-bold uppercase tracking-wider">Account Number *</label>
                     <input
                       type="text"
+                      id="accountNumber"
+                      name="accountNumber"
                       value={formData.accountNumber}
-                      disabled
-                      className="w-full bg-slate-100 border border-slate-200 rounded-xl px-4 py-3 text-slate-500 cursor-not-allowed"
+                      onChange={handleChange}
+                      onBlur={handleBlur}
+                      placeholder="e.g. 1002456789"
+                      className={`w-full bg-[#0f0f11] border ${errors.accountNumber ? 'border-red-500/50 focus:border-red-500' : 'border-white/10 focus:border-[#ff5a1f]'} rounded-xl px-4 py-3.5 text-white text-sm focus:outline-none transition-all placeholder:text-[#444]`}
                     />
+                    {errors.accountNumber && (
+                      <p className="text-[11px] text-red-400 font-medium animate-in fade-in flex items-center gap-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                        {errors.accountNumber}
+                      </p>
+                    )}
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                      Nickname
-                    </label>
+                  {/* Account Name */}
+                  <div className="space-y-2">
+                    <label htmlFor="accountName" className="text-[11px] text-[#8a8a8a] font-bold uppercase tracking-wider">Account Name *</label>
                     <input
                       type="text"
-                      value={nickname}
-                      onChange={(e) => setNickname(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 placeholder-slate-400 outline-none transition-all focus:border-[#e65a28] focus:ring-1 focus:ring-[#e65a28]"
-                      placeholder="Enter new nickname"
+                      id="accountName"
+                      name="accountName"
+                      value={formData.accountName}
+                      onChange={handleChange}
+                      onBlur={handleBlur}
+                      placeholder="e.g. John Doe"
+                      className={`w-full bg-[#0f0f11] border ${errors.accountName ? 'border-red-500/50 focus:border-red-500' : 'border-white/10 focus:border-[#ff5a1f]'} rounded-xl px-4 py-3.5 text-white text-sm focus:outline-none transition-all placeholder:text-[#444]`}
                     />
+                    {errors.accountName && (
+                      <p className="text-[11px] text-red-400 font-medium animate-in fade-in flex items-center gap-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                        {errors.accountName}
+                      </p>
+                    )}
                   </div>
 
-                  <div className="flex gap-4 mt-8 pt-6 border-t border-slate-100">
-                    <button
-                      type="button"
-                      onClick={goToList}
-                      className="flex-1 rounded-xl border border-slate-200 bg-white px-8 py-3.5 font-bold text-slate-700 shadow-sm transition-all hover:bg-slate-50"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      className="flex-1 rounded-xl bg-[#e65a28] px-8 py-3.5 font-bold text-white shadow-md shadow-orange-500/20 transition-all hover:bg-[#d44d1e] hover:shadow-lg hover:shadow-orange-500/30"
-                    >
-                      Save Changes
-                    </button>
+                  {/* Email */}
+                  <div className="space-y-2">
+                    <label htmlFor="email" className="text-[11px] text-[#8a8a8a] font-bold uppercase tracking-wider">Email Address *</label>
+                    <input
+                      type="email"
+                      id="email"
+                      name="email"
+                      value={formData.email}
+                      onChange={handleChange}
+                      onBlur={handleBlur}
+                      placeholder="e.g. john@example.com"
+                      className={`w-full bg-[#0f0f11] border ${errors.email ? 'border-red-500/50 focus:border-red-500' : 'border-white/10 focus:border-[#ff5a1f]'} rounded-xl px-4 py-3.5 text-white text-sm focus:outline-none transition-all placeholder:text-[#444]`}
+                    />
+                    {errors.email && (
+                      <p className="text-[11px] text-red-400 font-medium animate-in fade-in flex items-center gap-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                        {errors.email}
+                      </p>
+                    )}
                   </div>
-                </form>
-              </div>
+
+                  {/* Nickname */}
+                  <div className="space-y-2">
+                    <label htmlFor="nickname" className="text-[11px] text-[#8a8a8a] font-bold uppercase tracking-wider">Nickname *</label>
+                    <input
+                      type="text"
+                      id="nickname"
+                      name="nickname"
+                      value={formData.nickname}
+                      onChange={handleChange}
+                      onBlur={handleBlur}
+                      placeholder="e.g. Savings Acct"
+                      className={`w-full bg-[#0f0f11] border ${errors.nickname ? 'border-red-500/50 focus:border-red-500' : 'border-white/10 focus:border-[#ff5a1f]'} rounded-xl px-4 py-3.5 text-white text-sm focus:outline-none transition-all placeholder:text-[#444]`}
+                    />
+                    {errors.nickname && (
+                      <p className="text-[11px] text-red-400 font-medium animate-in fade-in flex items-center gap-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                        {errors.nickname}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="pt-6 border-t border-white/5 flex flex-col-reverse sm:flex-row justify-end gap-4 mt-8">
+                  <button
+                    type="button"
+                    onClick={handleCancel}
+                    className="px-8 py-3.5 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-sm transition-colors border border-white/5"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleAddAccount}
+                    className="px-8 py-3.5 rounded-xl bg-[#ff5a1f] hover:bg-[#e64a15] text-white font-bold text-sm transition-all shadow-lg shadow-[#ff5a1f]/20 active:scale-95 flex items-center justify-center gap-2"
+                  >
+                    Save Account
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  </button>
+                </div>
+              </form>
             </div>
-          )}
-        </div>
+          </div>
+        )}
+
+        {/* ===== EDIT SCREEN ===== */}
+        {screen === 'edit' && (
+          <div className="max-w-md mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="bg-[#17171a] rounded-3xl p-8 shadow-2xl border border-white/5 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/5 rounded-full blur-[80px] pointer-events-none"></div>
+              
+              <div className="flex items-center gap-4 mb-8">
+                <button onClick={handleCancel} className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-white hover:bg-white/10 transition-colors border border-white/10">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+                </button>
+                <h2 className="text-2xl font-bold !text-white tracking-tight">Edit Nickname</h2>
+              </div>
+
+              <form onSubmit={handleEditNickname} className="space-y-6 relative z-10">
+                <div className="space-y-2">
+                  <label htmlFor="accountNumber" className="text-[11px] text-[#8a8a8a] font-bold uppercase tracking-wider">Bank Account Number</label>
+                  <input
+                    type="text"
+                    id="accountNumber"
+                    value={formData.accountNumber || '1234 5678 9012'}
+                    disabled
+                    className="w-full bg-[#0f0f11]/50 border border-white/5 rounded-xl px-4 py-3.5 text-[#666] text-sm cursor-not-allowed"
+                  />
+                  <p className="text-[10px] text-[#555] mt-1">Account numbers cannot be changed after creation.</p>
+                </div>
+
+                <div className="space-y-2">
+                  <label htmlFor="nickname" className="text-[11px] text-[#8a8a8a] font-bold uppercase tracking-wider">Account Nickname</label>
+                  <input
+                    type="text"
+                    id="nickname"
+                    value={nickname}
+                    onChange={(e) => setNickname(e.target.value)}
+                    placeholder="Enter new nickname"
+                    className="w-full bg-[#0f0f11] border border-white/10 rounded-xl px-4 py-3.5 text-white text-sm focus:outline-none focus:border-[#ff5a1f] transition-all placeholder:text-[#444]"
+                    required
+                  />
+                </div>
+
+                <div className="pt-6 border-t border-white/5 flex flex-col-reverse sm:flex-row justify-end gap-4 mt-8">
+                  <button
+                    type="button"
+                    onClick={handleCancel}
+                    className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-sm transition-colors border border-white/5"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-[#ff5a1f] hover:bg-[#e64a15] text-white font-bold text-sm transition-all shadow-lg shadow-[#ff5a1f]/20 active:scale-95"
+                  >
+                    Save Changes
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </main>
+
+      <style dangerouslySetInnerHTML={{__html: `
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background-color: rgba(255, 255, 255, 0.05);
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background-color: rgba(255, 255, 255, 0.1);
+        }
+      `}} />
     </div>
   )
 }

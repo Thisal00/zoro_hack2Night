@@ -1,471 +1,196 @@
 'use client'
 
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { useState } from 'react'
-
-const LeftPanel = () => (
-  <div className="relative hidden w-1/2 flex-col justify-between overflow-hidden bg-slate-50 border-r border-slate-200 p-12 text-slate-900 md:flex">
-    <div className="flex items-center gap-3">
-      <div className="flex size-9 items-center justify-center rounded-lg bg-orange-100 text-[#e65a28] shadow-sm border border-orange-200">
-        <svg viewBox="0 0 24 24" fill="currentColor" className="size-5">
-          <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z" />
-        </svg>
-      </div>
-      <span className="text-2xl font-bold tracking-wide text-slate-900">
-        Nova Bank
-      </span>
-    </div>
-
-    <div className="z-10 mt-20 flex-1">
-      <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#e65a28]">
-        Digital Banking Platform
-      </p>
-      <h1 className="mt-6 text-[3.2rem] leading-[1.1] font-bold text-slate-900 max-w-[400px]">
-        Simplicity in every transaction.
-      </h1>
-      <p className="mt-8 max-w-[380px] text-[1.1rem] leading-relaxed text-slate-600">
-        Experience structural security packed inside a calm, refined, minimalist
-        ecosystem built to keep your capital fluid.
-      </p>
-    </div>
-
-    <div className="z-10 text-xs font-medium text-slate-500 tracking-widest uppercase">
-      Nova Bank International © 2026
-    </div>
-
-    <div className="absolute -bottom-32 -left-32 size-96 rounded-full bg-orange-200/50 blur-3xl pointer-events-none" />
-  </div>
-)
-
-type LoginMode = 'password' | 'google_email' | 'google_otp'
+import Link from "next/link";
+import { loginUser } from "@/lib/actions";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
-  const [mode, setMode] = useState<LoginMode>('password')
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
-  const [googleEmail, setGoogleEmail] = useState('')
-  const [otp, setOtp] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
-  const router = useRouter()
+  const [authLoading, setAuthLoading] = useState<string | null>(null);
+  const router = useRouter();
 
-  const handlePasswordLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-    setLoading(true)
-    try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
-      })
-      const data = await res.json()
-      if (res.ok && data.ok) {
-        router.push('/dashboard')
-      } else {
-        setError(data.message || 'Login failed')
-      }
-    } catch (err) {
-      setError('An error occurred during login')
-    } finally {
-      setLoading(false)
+  const handleSubmit = async (formData: FormData) => {
+    const result = await loginUser(formData);
+    if (result?.error) {
+      alert(result.error);
     }
-  }
+  };
 
-  const handleGoogleEmailSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!googleEmail || !googleEmail.includes('@')) {
-      setError('Please enter a valid Gmail address')
-      return
-    }
-    setError('')
-    // Simulate sending OTP
-    setMode('google_otp')
-  }
-
-  const handleGoogleOtpLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-    setLoading(true)
-    try {
-      const res = await fetch('/api/auth/google-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: googleEmail, otp })
-      })
-      const data = await res.json()
-      if (res.ok && data.ok) {
-        router.push('/dashboard')
-      } else {
-        setError(data.message || 'OTP Verification failed')
-      }
-    } catch (err) {
-      setError('An error occurred during OTP verification')
-    } finally {
-      setLoading(false)
-    }
-  }
+  const handleOAuth = async (provider: string) => {
+    setAuthLoading(provider);
+    // Fake delay for realistic feeling
+    await new Promise(resolve => setTimeout(resolve, 5000));
+    router.push('/dashboard');
+  };
 
   return (
-    <div className="mx-auto flex min-h-[640px] w-full max-w-[1024px] overflow-hidden rounded-3xl bg-white shadow-xl border border-slate-200 transition-all duration-500">
-      <LeftPanel />
+    <main className="min-h-screen flex items-center justify-center bg-[#0a0a0a] p-4 sm:p-8 font-sans selection:bg-[#ff5a1f] selection:text-white">
+      
+      <div className="w-full max-w-[1100px] min-h-[700px] flex flex-col md:flex-row bg-[#111111] rounded-[24px] overflow-hidden shadow-2xl border border-white/5">
+        
+        {/* Left Branding Pane (Image Background) */}
+        <div className="hidden md:flex flex-col w-[45%] p-10 justify-between relative">
+          {/* Background Image with Overlay */}
+          <div 
+            className="absolute inset-0 z-0 bg-cover bg-center"
+            style={{ backgroundImage: "url('https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=2070&auto=format&fit=crop')" }}
+          ></div>
+          <div className="absolute inset-0 z-0 bg-gradient-to-b from-[#111111]/80 via-[#111111]/60 to-[#111111]/90"></div>
 
-      <div className="flex w-full flex-col justify-center px-10 py-12 md:w-1/2 relative overflow-hidden">
-        <div className="mx-auto w-full max-w-[380px] relative z-10">
-          {mode === 'password' && (
-            <div className="animate-in fade-in slide-in-from-right-4 duration-500">
-              <h2 className="text-3xl font-bold text-slate-900">
-                Welcome back
-              </h2>
-              <p className="mt-2 text-[15px] text-slate-500">
-                Enter your account credentials to access your terminal.
-              </p>
-
-              {error && (
-                <div className="mt-6 rounded-lg bg-red-50 p-3 text-sm font-medium text-red-600 border border-red-100">
-                  {error}
-                </div>
-              )}
-
-              <form className="mt-8 space-y-5" onSubmit={handlePasswordLogin}>
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-700">
-                    Email
-                  </label>
-                  <input
-                    suppressHydrationWarning
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    placeholder="name@example.com"
-                    required
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-slate-900 outline-none focus:border-[#e65a28] focus:ring-1 focus:ring-[#e65a28] transition-colors focus:bg-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-700">
-                    Password
-                  </label>
-                  <div className="relative">
-                    <input
-                      suppressHydrationWarning
-                      type={showPassword ? 'text' : 'password'}
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="••••••••••••"
-                      required
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3.5 pr-12 text-slate-900 outline-none focus:border-[#e65a28] focus:ring-1 focus:ring-[#e65a28] transition-colors focus:bg-white"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        strokeWidth={2}
-                        stroke="currentColor"
-                        className="size-5"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z"
-                        />
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"
-                        />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between mt-4">
-                  <label className="flex items-center gap-2 cursor-pointer text-sm text-slate-600">
-                    <input
-                      type="checkbox"
-                      className="size-4 rounded border-slate-300 text-[#e65a28] focus:ring-[#e65a28]"
-                    />
-                    Remember device
-                  </label>
-                  <Link
-                    href="/reset-password"
-                    className="text-sm font-semibold text-[#e65a28] hover:underline"
-                  >
-                    Forgot password?
-                  </Link>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="mt-6 w-full rounded-xl bg-[#e65a28] py-3.5 font-bold text-white transition hover:bg-[#d44d1e] disabled:opacity-70 shadow-md shadow-orange-500/20"
-                >
-                  {loading ? 'Signing In...' : 'Sign In'}
-                </button>
-
-                <div className="relative mt-8 flex items-center justify-center">
-                  <div className="absolute inset-x-0 h-px bg-slate-200" />
-                  <span className="relative bg-white px-4 text-xs text-slate-400 uppercase tracking-wider">
-                    or continue with
-                  </span>
-                </div>
-
-                <div className="mt-6 grid grid-cols-2 gap-4">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMode('google_email')
-                      setError('')
-                    }}
-                    className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-sm"
-                  >
-                    <svg
-                      viewBox="0 0 24 24"
-                      className="size-5"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                        fill="#4285F4"
-                      />
-                      <path
-                        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                        fill="#34A853"
-                      />
-                      <path
-                        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                        fill="#FBBC05"
-                      />
-                      <path
-                        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                        fill="#EA4335"
-                      />
-                    </svg>
-                    Google
-                  </button>
-                  <button
-                    type="button"
-                    className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-sm cursor-not-allowed opacity-50"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      strokeWidth={1.5}
-                      stroke="currentColor"
-                      className="size-5"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M10.5 1.5H8.25A2.25 2.25 0 0 0 6 3.75v16.5a2.25 2.25 0 0 0 2.25 2.25h7.5A2.25 2.25 0 0 0 18 20.25V3.75a2.25 2.25 0 0 0-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3"
-                      />
-                    </svg>
-                    Phone
-                  </button>
-                </div>
-
-                <p className="mt-10 text-center text-[15px] text-slate-600">
-                  Don't have an account?{' '}
-                  <Link
-                    href="/sign-up"
-                    className="font-semibold text-[#e65a28] hover:underline"
-                  >
-                    Sign up
-                  </Link>
-                </p>
-              </form>
+          {/* Top Logo */}
+          <div className="relative z-10 flex items-center gap-3">
+            <div className="text-white bg-[#ff5a1f] p-1.5 rounded-lg">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                <path d="M12 8v4"></path>
+                <path d="M12 16h.01"></path>
+              </svg>
             </div>
-          )}
+            <span className="font-bold text-xl tracking-wide text-white">Nova<span className="text-white/60">Bank</span></span>
+          </div>
 
-          {mode === 'google_email' && (
-            <div className="animate-in fade-in slide-in-from-right-4 duration-500">
-              <button
-                onClick={() => setMode('password')}
-                className="mb-6 flex items-center text-sm font-semibold text-slate-500 hover:text-slate-800 transition-colors"
-              >
-                <svg
-                  className="mr-2 size-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  strokeWidth="2"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"
-                  />
-                </svg>
-                Back to Login
-              </button>
-
-              <div className="flex justify-center mb-6">
-                <div className="rounded-full bg-slate-50 p-4 border border-slate-100 shadow-inner">
-                  <svg
-                    viewBox="0 0 24 24"
-                    className="size-10"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                      fill="#4285F4"
-                    />
-                    <path
-                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                      fill="#34A853"
-                    />
-                    <path
-                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                      fill="#FBBC05"
-                    />
-                    <path
-                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                      fill="#EA4335"
-                    />
-                  </svg>
-                </div>
-              </div>
-
-              <h2 className="text-3xl font-bold text-center text-slate-900">
-                Sign in with Google
-              </h2>
-              <p className="mt-2 text-[15px] text-center text-slate-500">
-                Enter your Gmail address to receive an OTP.
+          {/* Center Text */}
+          <div className="relative z-10 space-y-4 -mt-20">
+            <div className="inline-block px-3 py-1 rounded-full bg-[#ff5a1f]/10 border border-[#ff5a1f]/20">
+              <p className="text-[#ff5a1f] text-[10px] font-bold tracking-[0.15em] uppercase">
+                Digital Ecosystem
               </p>
-
-              {error && (
-                <div className="mt-6 rounded-lg bg-red-50 p-3 text-sm font-medium text-red-600 border border-red-100">
-                  {error}
-                </div>
-              )}
-
-              <form
-                className="mt-8 space-y-5"
-                onSubmit={handleGoogleEmailSubmit}
-              >
-                <div>
-                  <input
-                    type="email"
-                    value={googleEmail}
-                    onChange={(e) => setGoogleEmail(e.target.value)}
-                    placeholder="Email or phone"
-                    required
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-slate-900 outline-none focus:border-[#4285F4] focus:ring-1 focus:ring-[#4285F4] transition-colors focus:bg-white text-lg"
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  className="mt-6 w-full rounded-xl bg-[#4285F4] py-3.5 font-bold text-white transition hover:bg-[#3367d6] shadow-md shadow-blue-500/20"
-                >
-                  Next
-                </button>
-              </form>
             </div>
-          )}
+            <h1 className="text-[3.2rem] font-semibold leading-[1.05] text-white">
+              Finance<br/>Reimagined.
+            </h1>
+            <p className="text-gray-400 text-[15px] leading-relaxed max-w-[280px]">
+              Secure. Intelligent. Built for the future of capital.
+            </p>
+          </div>
 
-          {mode === 'google_otp' && (
-            <div className="animate-in fade-in slide-in-from-right-4 duration-500">
-              <button
-                onClick={() => setMode('google_email')}
-                className="mb-6 flex items-center text-sm font-semibold text-slate-500 hover:text-slate-800 transition-colors"
-              >
-                <svg
-                  className="mr-2 size-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  strokeWidth="2"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"
-                  />
-                </svg>
-                Back
-              </button>
+          {/* Bottom Security Badge */}
+          <div className="relative z-10 flex items-center gap-4">
+            <div className="w-10 h-10 rounded-full border border-white/20 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-300">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+              </svg>
+            </div>
+            <div>
+              <p className="text-white text-sm font-medium">Bank-grade security</p>
+              <p className="text-gray-500 text-xs">Encrypted. Protected. Trusted.</p>
+            </div>
+          </div>
+        </div>
 
-              <div className="flex justify-center mb-6">
-                <div className="rounded-full bg-slate-50 p-4 border border-slate-100 shadow-inner flex flex-col items-center justify-center">
-                  <div className="flex items-center gap-2 border border-slate-200 rounded-full py-1 px-3 bg-white">
-                    <svg
-                      viewBox="0 0 24 24"
-                      className="size-4"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                        fill="#4285F4"
-                      />
-                      <path
-                        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                        fill="#34A853"
-                      />
-                      <path
-                        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                        fill="#FBBC05"
-                      />
-                      <path
-                        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                        fill="#EA4335"
-                      />
-                    </svg>
-                    <span className="text-xs font-semibold text-slate-700">
-                      {googleEmail}
-                    </span>
-                  </div>
+        {/* Right Form Pane */}
+        <div className="w-full md:w-[55%] p-10 lg:p-14 flex flex-col justify-center relative">
+          
+          <h2 className="text-[28px] font-semibold text-white mb-2" style={{ color: '#ffffff' }}>Welcome back</h2>
+          <p className="text-[14px] text-gray-400 mb-10">
+            Log in to access your NovaBank account.
+          </p>
+
+          <form action={handleSubmit} className="space-y-5">
+            
+            {/* Account Identity */}
+            <div className="space-y-2">
+              <label className="text-[13px] font-medium text-white">Account Identity</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                 </div>
-              </div>
-
-              <h2 className="text-3xl font-bold text-center text-slate-900">
-                2-Step Verification
-              </h2>
-              <p className="mt-2 text-[15px] text-center text-slate-500">
-                An email with a verification code was just sent to{' '}
-                <strong className="text-slate-800">{googleEmail}</strong>. (Use
-                123456 for demo)
-              </p>
-
-              {error && (
-                <div className="mt-6 rounded-lg bg-red-50 p-3 text-sm font-medium text-red-600 border border-red-100">
-                  {error}
-                </div>
-              )}
-
-              <form className="mt-8 space-y-5" onSubmit={handleGoogleOtpLogin}>
-                <div>
                   <input
                     type="text"
-                    value={otp}
-                    onChange={(e) => setOtp(e.target.value)}
-                    placeholder="Enter code"
+                    name="username"
+                    placeholder="admin"
+                    className="w-full pl-11 pr-4 py-3.5 rounded-xl border border-white/10 bg-white/5 text-white text-[15px] focus:bg-white/10 focus:border-[#ff5a1f] focus:ring-1 focus:ring-[#ff5a1f] transition-all outline-none placeholder-gray-500"
                     required
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-center tracking-widest text-slate-900 outline-none focus:border-[#4285F4] focus:ring-1 focus:ring-[#4285F4] transition-colors focus:bg-white text-2xl font-mono"
-                    maxLength={6}
                   />
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="mt-6 w-full rounded-xl bg-[#4285F4] py-3.5 font-bold text-white transition hover:bg-[#3367d6] disabled:opacity-70 shadow-md shadow-blue-500/20"
-                >
-                  {loading ? 'Verifying...' : 'Verify & Continue'}
-                </button>
-              </form>
+              </div>
             </div>
-          )}
+
+            {/* Security Key */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-[13px] font-medium text-white">Security Key</label>
+                <Link href="/reset-password" className="text-[12px] text-gray-500 hover:text-white transition-colors">
+                  Forgot?
+                </Link>
+              </div>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                </div>
+                  <input
+                    type="password"
+                    name="password"
+                    placeholder="••••••••"
+                    className="w-full pl-11 pr-12 py-3.5 rounded-xl border border-white/10 bg-white/5 text-white text-[15px] focus:bg-white/10 focus:border-[#ff5a1f] focus:ring-1 focus:ring-[#ff5a1f] transition-all outline-none placeholder-gray-500 tracking-widest"
+                    required
+                  />
+                <button type="button" className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+              </div>
+            </div>
+
+            {/* Remember Me */}
+            <div className="pt-1 pb-3">
+              <label className="flex items-center gap-3 cursor-pointer group w-max">
+                <div className="relative flex items-center justify-center w-5 h-5 rounded bg-[#ff5a1f]">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
+                <span className="text-[13px] text-gray-400 group-hover:text-gray-300 transition-colors">Remember me</span>
+              </label>
+            </div>
+
+            {/* Submit Button */}
+            <button
+              type="submit"
+              className="w-full bg-[#ff5a1f] hover:bg-[#e64a15] text-white font-medium py-3.5 rounded-xl transition-all transform active:scale-[0.98] text-[15px] flex items-center justify-center gap-2"
+            >
+              Log in
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+            </button>
+          </form>
+
+          {/* Divider */}
+          <div className="mt-10 mb-8 flex items-center gap-4">
+            <div className="flex-1 h-px bg-white/5"></div>
+            <span className="text-[11px] text-gray-500 font-semibold uppercase tracking-wider">Or continue with</span>
+            <div className="flex-1 h-px bg-white/5"></div>
+          </div>
+
+          {/* OAuth Buttons */}
+          <div className="grid grid-cols-2 gap-4">
+            <button disabled={authLoading !== null} onClick={() => handleOAuth('Google')} type="button" className={`flex items-center justify-center gap-3 px-4 py-3 border border-white/10 rounded-xl transition-all text-[14px] font-medium text-white ${authLoading === 'Google' ? 'bg-white/10' : 'hover:bg-white/5 disabled:opacity-50'}`}>
+              {authLoading === 'Google' ? (
+                <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-500"><path d="M21.3 12.23c0-.8-.06-1.56-.18-2.3H12v4.36h5.2a4.46 4.46 0 0 1-1.92 2.92v2.4h3.1c1.82-1.68 2.92-4.14 2.92-7.38Z"/><path d="M12 21.5c2.6 0 4.8-1.12 6.4-3.04l-3.1-2.4c-.88.6-2 .96-3.3.96-2.52 0-4.66-1.68-5.42-3.92H3.34v2.44C4.94 19.34 8.24 21.5 12 21.5Z"/><path d="M6.58 13.1A5.3 5.3 0 0 1 6.3 12c0-.38.08-.76.16-1.1v-2.44H3.34a9.54 9.54 0 0 0 0 7.08l3.24-2.44Z"/><path d="M12 6.54c1.42 0 2.68.48 3.7 1.44l2.76-2.76A9.56 9.56 0 0 0 12 2.5C8.24 2.5 4.94 4.66 3.34 7.56l3.24 2.44c.76-2.24 2.9-3.92 5.42-3.92Z"/></svg>
+              )}
+              {authLoading === 'Google' ? 'Connecting...' : 'Google'}
+            </button>
+            <button disabled={authLoading !== null} onClick={() => handleOAuth('Apple')} type="button" className={`flex items-center justify-center gap-3 px-4 py-3 border border-white/10 rounded-xl transition-all text-[14px] font-medium text-white ${authLoading === 'Apple' ? 'bg-white/10' : 'hover:bg-white/5 disabled:opacity-50'}`}>
+              {authLoading === 'Apple' ? (
+                <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="white" stroke="currentColor" strokeWidth="0" className="text-white"><path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.56-1.702z"/></svg>
+              )}
+              {authLoading === 'Apple' ? 'Connecting...' : 'Apple'}
+            </button>
+          </div>
+
+          {/* Footer Texts */}
+          <div className="mt-14 text-center">
+            <p className="text-[14px] text-gray-500">
+              New to NovaBank? <Link href="/sign-up" className="font-semibold text-[#ff5a1f] hover:text-[#e64a15] transition-colors">Create an account</Link>
+            </p>
+          </div>
+
+          <div className="mt-auto pt-10 flex items-center justify-center gap-2 text-gray-600 text-xs w-full">
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+            © 2024 NovaBank. All rights reserved.
+          </div>
+
         </div>
       </div>
-    </div>
-  )
+    </main>
+  );
 }

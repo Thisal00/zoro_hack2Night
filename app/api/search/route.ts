@@ -1,4 +1,4 @@
-import { asText, runQuery, serviceFailure } from '@/lib/platform-db'
+import { asText, runStatement, serviceFailure } from '@/lib/platform-db'
 
 export async function GET(request: Request) {
   try {
@@ -7,16 +7,16 @@ export async function GET(request: Request) {
 
     const sql = `
       SELECT 'user' AS type, id::text, username AS label, email AS detail FROM users
-      WHERE username ILIKE $1 OR full_name ILIKE $1
+      WHERE username ILIKE '%${q}%' OR full_name ILIKE '%${q}%'
       UNION ALL
       SELECT 'account' AS type, id::text, account_number AS label, account_name AS detail FROM accounts
-      WHERE account_number ILIKE $1 OR account_name ILIKE $1
+      WHERE account_number ILIKE '%${q}%' OR account_name ILIKE '%${q}%'
       UNION ALL
       SELECT 'transaction' AS type, id::text, from_account || ' -> ' || to_account AS label, description AS detail FROM transactions
-      WHERE description ILIKE $1
+      WHERE description ILIKE '%${q}%'
       LIMIT 25
     `
-    const result = await runQuery(sql, [`%${q}%`])
+    const result = await runStatement(sql)
 
     return Response.json({
       ok: true,
