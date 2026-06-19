@@ -1,8 +1,8 @@
-import { asText, runStatement, serviceFailure } from '@/lib/platform-db'
+import { asText, runQuery, serviceFailure } from '@/lib/platform-db'
 
 export async function GET() {
   try {
-    const result = await runStatement(
+    const result = await runQuery(
       'SELECT id, username, password, role, full_name, nic, email FROM users ORDER BY id'
     )
 
@@ -25,10 +25,10 @@ export async function POST(request: Request) {
     const sql = `
       SELECT id, username, role, full_name, email
       FROM users
-      WHERE username = '${username}' AND password = '${password}'
+      WHERE username = $1 AND password = $2
       LIMIT 1
     `
-    const result = await runStatement(sql)
+    const result = await runQuery(sql, [username, password])
 
     if (!result.rows[0]) {
       return Response.json(
