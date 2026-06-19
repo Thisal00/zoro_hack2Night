@@ -1,5 +1,5 @@
-import { asText, runQuery, serviceFailure } from '@/lib/platform-db'
 import { verifyPassword } from '@/lib/password'
+import { asText, runQuery, serviceFailure } from '@/lib/platform-db'
 import { buildSessionCookie, createSessionToken } from '@/lib/session'
 
 export async function POST(request: Request) {
@@ -8,10 +8,12 @@ export async function POST(request: Request) {
     const username = asText(body.username)
     const password = asText(body.password)
 
+    // Accept either the username or the email (the UI offers "Account Name or
+    // Email"). Still verified against the scrypt hash below.
     const sql = `
       SELECT id, username, role, full_name, email, password
       FROM users
-      WHERE username = $1
+      WHERE username = $1 OR email = $1
       LIMIT 1
     `
     const result = await runQuery(sql, [username])

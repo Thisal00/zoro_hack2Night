@@ -14,7 +14,8 @@ const PROTECTED = [
   '/bank-transfer',
   '/pay-bills',
   '/smart-spend',
-  '/e-statement'
+  '/e-statement',
+  '/profile'
 ]
 
 const AUTH_PAGES = ['/login', '/sign-up']
@@ -49,6 +50,7 @@ export const config = {
     '/pay-bills/:path*',
     '/smart-spend/:path*',
     '/e-statement/:path*',
+    '/profile/:path*',
     '/login',
     '/sign-up'
   ]

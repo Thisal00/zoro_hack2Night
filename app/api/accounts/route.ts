@@ -7,7 +7,10 @@ export async function GET(request: Request) {
     // accounts. PINs are never returned.
     const session = getSession(request)
     if (!session) {
-      return Response.json({ ok: false, message: 'Unauthorized.' }, { status: 401 })
+      return Response.json(
+        { ok: false, message: 'Unauthorized.' },
+        { status: 401 }
+      )
     }
 
     const sql = `

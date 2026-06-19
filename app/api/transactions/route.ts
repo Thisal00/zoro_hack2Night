@@ -7,7 +7,10 @@ export async function GET(request: Request) {
     // accounts they own.
     const session = getSession(request)
     if (!session) {
-      return Response.json({ ok: false, message: 'Unauthorized.' }, { status: 401 })
+      return Response.json(
+        { ok: false, message: 'Unauthorized.' },
+        { status: 401 }
+      )
     }
 
     const owned = await runQuery(
@@ -23,7 +26,10 @@ export async function GET(request: Request) {
     if (requested) {
       // A specific account was asked for — it must belong to the caller.
       if (!ownedAccounts.includes(requested)) {
-        return Response.json({ ok: false, message: 'Forbidden.' }, { status: 403 })
+        return Response.json(
+          { ok: false, message: 'Forbidden.' },
+          { status: 403 }
+        )
       }
       accounts = [requested]
     } else {

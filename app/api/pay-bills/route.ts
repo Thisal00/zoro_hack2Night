@@ -8,9 +8,11 @@ function constantTimeEquals(a: string, b: string) {
   return bufA.length === bufB.length && crypto.timingSafeEqual(bufA, bufB)
 }
 
+// Bill payment is a debit-only operation: money leaves the user's account to an
+// external biller (no destination account to credit). Authorized by session +
+// PIN + ownership + balance, recorded atomically — same guarantees as transfer.
 export async function POST(request: Request) {
   try {
-    // 1. Require an authenticated session.
     const session = getSession(request)
     if (!session) {
       return Response.json(
@@ -20,22 +22,17 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json().catch(() => ({}))
-    const fromAccount = asText(body.fromAccount || body.from)
-    const toAccount = asText(body.toAccount || body.to)
+    const fromAccount = asText(body.fromAccount)
+    const biller = asText(body.biller)
+    const billAccountNumber = asText(body.accountNumber)
+    const billId = asText(body.billId)
+    const remarks = asText(body.remarks)
     const pin = asText(body.pin)
-    const description = asText(body.description)
     const amount = Number(body.amount)
 
-    // 2. Validate input.
-    if (!fromAccount || !toAccount) {
+    if (!fromAccount || !biller) {
       return Response.json(
-        { ok: false, message: 'fromAccount and toAccount are required.' },
-        { status: 400 }
-      )
-    }
-    if (fromAccount === toAccount) {
-      return Response.json(
-        { ok: false, message: 'Cannot transfer to the same account.' },
+        { ok: false, message: 'fromAccount and biller are required.' },
         { status: 400 }
       )
     }
@@ -51,20 +48,16 @@ export async function POST(request: Request) {
     try {
       await client.query('BEGIN')
 
-      // 3. Lock both accounts in a deterministic order (by account_number) to
-      // avoid deadlocks between concurrent opposite-direction transfers.
       const locked = await client.query(
         `SELECT id, account_number, user_id, balance, pin
          FROM accounts
-         WHERE account_number IN ($1, $2)
-         ORDER BY account_number
+         WHERE account_number = $1
          FOR UPDATE`,
-        [fromAccount, toAccount]
+        [fromAccount]
       )
-      const from = locked.rows.find((r) => r.account_number === fromAccount)
-      const to = locked.rows.find((r) => r.account_number === toAccount)
+      const from = locked.rows[0]
 
-      // 4. Ownership: the source account must exist and belong to the caller.
+      // Ownership: the source account must exist and belong to the caller.
       if (!from || from.user_id !== session.sub) {
         await client.query('ROLLBACK')
         return Response.json(
@@ -73,7 +66,6 @@ export async function POST(request: Request) {
         )
       }
 
-      // 5. PIN verification (constant-time).
       if (!constantTimeEquals(pin, asText(from.pin))) {
         await client.query('ROLLBACK')
         return Response.json(
@@ -82,16 +74,6 @@ export async function POST(request: Request) {
         )
       }
 
-      // 6. Destination must exist.
-      if (!to) {
-        await client.query('ROLLBACK')
-        return Response.json(
-          { ok: false, message: 'Destination account not found.' },
-          { status: 404 }
-        )
-      }
-
-      // 7. Sufficient funds (no overdraft).
       if (Number(from.balance) < amount) {
         await client.query('ROLLBACK')
         return Response.json(
@@ -100,26 +82,28 @@ export async function POST(request: Request) {
         )
       }
 
-      // 8. Debit, credit, and record — all atomic.
       await client.query(
         'UPDATE accounts SET balance = balance - $1 WHERE account_number = $2',
         [amount, fromAccount]
       )
-      await client.query(
-        'UPDATE accounts SET balance = balance + $1 WHERE account_number = $2',
-        [amount, toAccount]
-      )
+      const description = `Bill Payment - ${billId}${remarks ? ` ${remarks}` : ''}`
       const inserted = await client.query(
         `INSERT INTO transactions (from_account, to_account, amount, description, created_by)
          VALUES ($1, $2, $3, $4, $5)
          RETURNING *`,
-        [fromAccount, toAccount, amount, description, session.sub]
+        [
+          fromAccount,
+          `${biller} (${billAccountNumber})`,
+          amount,
+          description,
+          session.sub
+        ]
       )
 
       await client.query('COMMIT')
       return Response.json({
         ok: true,
-        message: 'Transfer accepted.',
+        message: 'Bill payment accepted.',
         transaction: inserted.rows[0]
       })
     } catch (e) {

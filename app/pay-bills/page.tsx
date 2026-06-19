@@ -1,15 +1,63 @@
 'use client'
 
-import { useState } from 'react'
-import Image from 'next/image'
+import { useEffect, useState } from 'react'
 import Sidebar from '../../components/sidebar'
-import {
-  Search,
-  Settings,
-  CheckCircle2,
-  AlertTriangle,
-  ChevronLeft
-} from '../../components/Icons'
+
+// Modern icons
+const Bell = ({ size = 20 }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+    <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+  </svg>
+)
+
+const SearchIcon = ({ size = 20 }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <circle cx="11" cy="11" r="8" />
+    <path d="m21 21-4.3-4.3" />
+  </svg>
+)
+
+const ChevronLeft = ({ size = 20 }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="m15 18-6-6 6-6" />
+  </svg>
+)
+
+function getCookie(name: string) {
+  if (typeof document === 'undefined') return null
+  const value = `; ${document.cookie}`
+  const parts = value.split(`; ${name}=`)
+  if (parts.length === 2) return parts.pop()?.split(';').shift()
+  return null
+}
 
 type Biller = {
   id: string
@@ -34,12 +82,11 @@ const billers: Biller[] = [
 
 type Screen = 'select' | 'form' | 'success' | 'failed'
 
-const MOCK_BALANCE = 5000
-
 type FormErrors = {
   accountNumber?: string
   billId?: string
   dueAmount?: string
+  pin?: string
 }
 
 export default function PayBillsPage() {
@@ -52,6 +99,39 @@ export default function PayBillsPage() {
   const [confirmationNumber, setConfirmationNumber] = useState('')
   const [failReason, setFailReason] = useState('')
   const [errors, setErrors] = useState<FormErrors>({})
+  const [loading, setLoading] = useState(false)
+  const [pin, setPin] = useState('')
+  const [fromAccount, setFromAccount] = useState('')
+  const [currentBalance, setCurrentBalance] = useState(0)
+  const [accounts, setAccounts] = useState<any[]>([])
+  const [showNotifications, setShowNotifications] = useState(false)
+
+  useEffect(() => {
+    async function loadAccount() {
+      const userId = getCookie('user_id') || '1'
+      try {
+        const res = await fetch(`/api/accounts?userId=${userId}`)
+        const data = await res.json()
+        if (data.ok && data.accounts.length > 0) {
+          setAccounts(data.accounts)
+          setFromAccount(data.accounts[0].account_number)
+          setCurrentBalance(Number(data.accounts[0].balance))
+        }
+      } catch (err) {
+        console.error('Failed to fetch account', err)
+      }
+    }
+    loadAccount()
+  }, [])
+
+  function handleFromAccountChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    const accNumber = e.target.value
+    setFromAccount(accNumber)
+    const acc = accounts.find((a) => a.account_number === accNumber)
+    if (acc) {
+      setCurrentBalance(Number(acc.balance))
+    }
+  }
 
   function handleSelectBiller(biller: Biller) {
     setSelectedBiller(biller)
@@ -66,6 +146,10 @@ export default function PayBillsPage() {
       newErrors.accountNumber = 'Account number is required'
     } else if (!/^[0-9]{6,16}$/.test(accountNumber.trim())) {
       newErrors.accountNumber = 'Enter a valid account number (6–16 digits)'
+    }
+
+    if (!/^\d{4,}$/.test(pin)) {
+      newErrors.pin = 'Enter your account PIN'
     }
 
     if (!billId.trim()) {
@@ -87,24 +171,55 @@ export default function PayBillsPage() {
     return Object.keys(newErrors).length === 0
   }
 
-  function handlePayNow() {
+  async function handlePayNow() {
     if (!validateForm()) {
       return
     }
 
     const amount = Number(dueAmount)
 
-    if (amount > MOCK_BALANCE) {
+    if (amount > currentBalance) {
       setFailReason(
-        `Insufficient Balance\nCurrent Balance is: Rs.${MOCK_BALANCE}`
+        `Insufficient Balance\nCurrent Balance is: Rs.${currentBalance.toLocaleString()}`
       )
       setScreen('failed')
       return
     }
 
-    const confNum = Math.floor(10000000 + Math.random() * 90000000).toString()
-    setConfirmationNumber(confNum)
-    setScreen('success')
+    setLoading(true)
+    try {
+      const res = await fetch('/api/pay-bills', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fromAccount,
+          biller: selectedBiller?.name,
+          accountNumber,
+          billId,
+          remarks,
+          amount,
+          pin
+        })
+      })
+      const data = await res.json()
+
+      if (res.ok && data.ok) {
+        setConfirmationNumber(
+          data.transactionId ||
+            String(Math.floor(10000000 + Math.random() * 89999999))
+        )
+        setScreen('success')
+        setCurrentBalance((prev) => prev - amount)
+      } else {
+        setFailReason(data.message || 'Transaction failed on the server')
+        setScreen('failed')
+      }
+    } catch (err) {
+      setFailReason('Network error occurred')
+      setScreen('failed')
+    } finally {
+      setLoading(false)
+    }
   }
 
   function resetToHome() {
@@ -114,52 +229,99 @@ export default function PayBillsPage() {
     setBillId('')
     setDueAmount('')
     setRemarks('')
+    setPin('')
     setErrors({})
   }
 
   return (
-    <div className="page">
+    <div className="flex h-screen w-full bg-slate-50 font-sans text-slate-900 overflow-hidden">
       <Sidebar />
 
-      <div className="content">
-        <header className="topbar">
-          <h1>Pay Bills</h1>
-          <div className="topbar-icons">
-            <Search size={20} />
-            <Settings size={20} />
-            <div className="avatar">
-              <Image
-                src="/avatar.png"
-                alt="Profile"
-                width={36}
-                height={36}
-                style={{ objectFit: 'cover', borderRadius: '50%' }}
+      <main className="flex-1 overflow-y-auto px-6 py-8 md:px-10 lg:px-12">
+        <header className="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight text-slate-900">
+              Pay Bills
+            </h1>
+            <p className="text-sm text-slate-500 mt-1">
+              Select a merchant and settle your dues.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-5">
+            <div className="relative group">
+              <input
+                type="text"
+                placeholder="Search..."
+                className="w-48 md:w-64 rounded-full border border-slate-200 bg-white py-2 pl-10 pr-4 text-sm text-slate-900 placeholder-slate-400 outline-none transition-all focus:border-[#e65a28] focus:ring-1 focus:ring-[#e65a28] shadow-sm"
               />
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#e65a28] transition-colors">
+                <SearchIcon size={16} />
+              </div>
             </div>
+
+            <div className="relative">
+              <button
+                onClick={() => setShowNotifications(!showNotifications)}
+                className="relative flex size-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-900 transition-all shadow-sm"
+              >
+                <Bell size={18} />
+                <span className="absolute right-2 top-2 size-2 rounded-full bg-[#e65a28]" />
+              </button>
+
+              {showNotifications && (
+                <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden z-50">
+                  <div className="p-4 border-b border-slate-100">
+                    <h3 className="font-bold text-slate-900">Notifications</h3>
+                  </div>
+                  <div className="p-2 space-y-1">
+                    <div className="p-3 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer">
+                      <p className="text-sm font-medium text-slate-900">
+                        Bill Reminder
+                      </p>
+                      <p className="text-xs text-slate-500 mt-1">
+                        Your CEB bill is due in 3 days.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <button className="size-10 overflow-hidden rounded-full border-2 border-slate-200 hover:border-[#e65a28] transition-all shadow-sm">
+              <img
+                src="/person-logo.png"
+                alt="profile"
+                className="size-full object-cover"
+              />
+            </button>
           </div>
         </header>
 
-        <main className="main">
-          <div className="card-wrapper">
+        <div className="max-w-4xl mx-auto">
+          <div className="rounded-3xl border border-slate-200 bg-white shadow-sm p-8 relative overflow-hidden">
+            {/* Ambient glow */}
+            <div className="absolute -top-20 -right-20 size-64 rounded-full bg-orange-50 blur-[80px] pointer-events-none" />
+
             {screen === 'select' && (
-              <div className="card">
-                <div className="biller-grid">
+              <div className="relative z-10">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                   {billers.map((biller) => (
                     <button
                       key={biller.id}
                       onClick={() => handleSelectBiller(biller)}
-                      className="biller-btn"
+                      className="group flex flex-col items-center gap-4 rounded-2xl bg-slate-50 border border-transparent p-6 transition-all hover:-translate-y-1 hover:bg-orange-50 hover:border-orange-100"
                     >
-                      <div className="biller-icon logo-circle">
-                        <Image
+                      <div className="flex size-16 items-center justify-center rounded-full bg-white shadow-sm p-2 transition-transform group-hover:scale-110 border border-slate-100 group-hover:border-orange-200">
+                        <img
                           src={biller.logo}
                           alt={biller.name}
-                          width={44}
-                          height={44}
-                          style={{ objectFit: 'contain' }}
+                          className="w-12 h-12 object-contain"
                         />
                       </div>
-                      <span className="biller-name">{biller.name}</span>
+                      <span className="text-sm font-semibold text-slate-700 text-center group-hover:text-[#e65a28] transition-colors">
+                        {biller.name}
+                      </span>
                     </button>
                   ))}
                 </div>
@@ -167,344 +329,215 @@ export default function PayBillsPage() {
             )}
 
             {screen === 'form' && selectedBiller && (
-              <div className="card">
+              <div className="relative z-10 max-w-xl mx-auto">
                 <button
-                  className="back-btn"
+                  className="flex items-center gap-1 text-sm font-medium text-slate-500 hover:text-slate-900 transition-colors mb-8"
                   onClick={() => setScreen('select')}
                 >
                   <ChevronLeft size={16} />
                   Back to billers
                 </button>
 
-                <div className="biller-header">
-                  <div className="biller-icon small logo-circle">
-                    <Image
+                <div className="flex items-center gap-4 mb-8 pb-8 border-b border-slate-100">
+                  <div className="flex size-12 items-center justify-center rounded-full bg-slate-50 border border-slate-100 p-2">
+                    <img
                       src={selectedBiller.logo}
                       alt={selectedBiller.name}
-                      width={28}
-                      height={28}
-                      style={{ objectFit: 'contain' }}
+                      className="w-8 h-8 object-contain"
                     />
                   </div>
-                  <span className="biller-header-name">
+                  <h2 className="text-2xl font-bold text-slate-900">
                     {selectedBiller.name}
-                  </span>
+                  </h2>
                 </div>
 
-                <div className="field">
-                  <label>Account number</label>
-                  <input
-                    value={accountNumber}
-                    onChange={(e) => setAccountNumber(e.target.value)}
-                    placeholder="Enter account number"
-                    className={errors.accountNumber ? 'input-error' : ''}
-                  />
-                  {errors.accountNumber && (
-                    <span className="error-text">{errors.accountNumber}</span>
-                  )}
-                </div>
+                <div className="space-y-5">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                      From Account
+                    </label>
+                    <select
+                      value={fromAccount}
+                      onChange={handleFromAccountChange}
+                      className="w-full bg-slate-50 border border-slate-200 focus:border-[#e65a28] focus:ring-[#e65a28] rounded-xl px-4 py-3 text-slate-900 outline-none transition-all appearance-none cursor-pointer focus:ring-1"
+                    >
+                      {accounts.map((acc) => (
+                        <option
+                          key={acc.account_number}
+                          value={acc.account_number}
+                        >
+                          {acc.account_name} ({acc.account_number}) - Rs.{' '}
+                          {Number(acc.balance).toLocaleString(undefined, {
+                            minimumFractionDigits: 2
+                          })}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-                <div className="field">
-                  <label>Bill ID</label>
-                  <input
-                    value={billId}
-                    onChange={(e) => setBillId(e.target.value)}
-                    placeholder="Enter bill ID"
-                    className={errors.billId ? 'input-error' : ''}
-                  />
-                  {errors.billId && (
-                    <span className="error-text">{errors.billId}</span>
-                  )}
-                </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                      Account Number
+                    </label>
+                    <input
+                      value={accountNumber}
+                      onChange={(e) => setAccountNumber(e.target.value)}
+                      placeholder="Enter account number"
+                      className={`w-full bg-slate-50 border ${errors.accountNumber ? 'border-red-500 focus:ring-red-500' : 'border-slate-200 focus:border-[#e65a28] focus:ring-[#e65a28]'} rounded-xl px-4 py-3 text-slate-900 placeholder-slate-400 outline-none transition-all focus:ring-1`}
+                    />
+                    {errors.accountNumber && (
+                      <span className="text-xs text-red-500 mt-1">
+                        {errors.accountNumber}
+                      </span>
+                    )}
+                  </div>
 
-                <div className="field">
-                  <label>Due Amount</label>
-                  <input
-                    type="number"
-                    value={dueAmount}
-                    onChange={(e) => setDueAmount(e.target.value)}
-                    placeholder="0.00"
-                    className={errors.dueAmount ? 'input-error' : ''}
-                  />
-                  {errors.dueAmount && (
-                    <span className="error-text">{errors.dueAmount}</span>
-                  )}
-                </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                      Bill ID
+                    </label>
+                    <input
+                      value={billId}
+                      onChange={(e) => setBillId(e.target.value)}
+                      placeholder="Enter bill ID"
+                      className={`w-full bg-slate-50 border ${errors.billId ? 'border-red-500 focus:ring-red-500' : 'border-slate-200 focus:border-[#e65a28] focus:ring-[#e65a28]'} rounded-xl px-4 py-3 text-slate-900 placeholder-slate-400 outline-none transition-all focus:ring-1`}
+                    />
+                    {errors.billId && (
+                      <span className="text-xs text-red-500 mt-1">
+                        {errors.billId}
+                      </span>
+                    )}
+                  </div>
 
-                <div className="field">
-                  <label>Remarks</label>
-                  <input
-                    value={remarks}
-                    onChange={(e) => setRemarks(e.target.value)}
-                    placeholder="Optional"
-                  />
-                </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                      Due Amount (Rs.)
+                    </label>
+                    <input
+                      type="number"
+                      value={dueAmount}
+                      onChange={(e) => setDueAmount(e.target.value)}
+                      placeholder="0.00"
+                      className={`w-full bg-slate-50 border ${errors.dueAmount ? 'border-red-500 focus:ring-red-500' : 'border-slate-200 focus:border-[#e65a28] focus:ring-[#e65a28]'} rounded-xl px-4 py-3 text-slate-900 placeholder-slate-400 outline-none transition-all focus:ring-1`}
+                    />
+                    {errors.dueAmount && (
+                      <span className="text-xs text-red-500 mt-1">
+                        {errors.dueAmount}
+                      </span>
+                    )}
+                  </div>
 
-                <button className="pay-now-btn" onClick={handlePayNow}>
-                  PAY NOW
-                </button>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                      Remarks (Optional)
+                    </label>
+                    <input
+                      value={remarks}
+                      onChange={(e) => setRemarks(e.target.value)}
+                      placeholder="Additional notes"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 placeholder-slate-400 outline-none transition-all focus:border-[#e65a28] focus:ring-1 focus:ring-[#e65a28]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                      Account PIN
+                    </label>
+                    <input
+                      type="password"
+                      inputMode="numeric"
+                      value={pin}
+                      onChange={(e) => {
+                        setPin(e.target.value)
+                        if (errors.pin)
+                          setErrors((prev) => ({ ...prev, pin: undefined }))
+                      }}
+                      placeholder="Enter your PIN to authorize"
+                      className={`w-full bg-slate-50 border ${errors.pin ? 'border-red-500 focus:ring-red-500' : 'border-slate-200 focus:border-[#e65a28] focus:ring-[#e65a28]'} rounded-xl px-4 py-3 text-slate-900 placeholder-slate-400 outline-none transition-all focus:ring-1`}
+                    />
+                    {errors.pin && (
+                      <span className="text-xs text-red-500 mt-1">
+                        {errors.pin}
+                      </span>
+                    )}
+                  </div>
+
+                  <button
+                    className="w-full mt-6 rounded-xl bg-[#e65a28] px-8 py-4 font-bold text-white shadow-md shadow-orange-500/20 transition-all hover:bg-[#d44d1e] hover:shadow-lg hover:shadow-orange-500/30 disabled:opacity-70 disabled:cursor-not-allowed"
+                    onClick={handlePayNow}
+                    disabled={loading}
+                  >
+                    {loading ? 'Processing...' : 'Pay Now'}
+                  </button>
+                </div>
               </div>
             )}
 
             {screen === 'success' && (
-              <div className="card status-card">
-                <div className="status-circle success">
-                  <CheckCircle2 size={64} />
+              <div className="relative z-10 text-center py-12">
+                <div className="mx-auto mb-6 flex size-24 items-center justify-center rounded-full bg-green-50 text-green-500 shadow-[0_0_30px_rgba(34,197,94,0.1)] border border-green-100">
+                  <svg
+                    width="40"
+                    height="40"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                    <path d="M22 4L12 14.01l-3-3" />
+                  </svg>
                 </div>
-                <h2>Payment Successful!</h2>
-                <p className="status-sub">
-                  Confirmation number : {confirmationNumber}
-                </p>
-                <button className="back-home-btn" onClick={resetToHome}>
-                  <ChevronLeft size={16} />
-                  BACK TO HOME
+                <h3 className="text-3xl font-bold text-slate-900 mb-2">
+                  Payment Successful
+                </h3>
+                <p className="text-slate-500 mb-8">Ref: {confirmationNumber}</p>
+                <button
+                  onClick={resetToHome}
+                  className="rounded-xl border border-slate-200 bg-white px-8 py-3.5 font-bold text-slate-700 transition-all hover:bg-slate-50 shadow-sm"
+                >
+                  Pay Another Bill
                 </button>
               </div>
             )}
 
             {screen === 'failed' && (
-              <div className="card status-card">
-                <div className="status-circle failed">
-                  <AlertTriangle size={64} />
+              <div className="relative z-10 text-center py-12">
+                <div className="mx-auto mb-6 flex size-24 items-center justify-center rounded-full bg-red-50 text-red-500 shadow-[0_0_30px_rgba(239,68,68,0.1)] border border-red-100">
+                  <svg
+                    width="40"
+                    height="40"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="8" x2="12" y2="12" />
+                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                  </svg>
                 </div>
-                <h2>Payment Failed!</h2>
-                <p className="status-sub">{failReason}</p>
-                <button className="back-home-btn" onClick={resetToHome}>
-                  <ChevronLeft size={16} />
-                  BACK TO HOME
+                <h3 className="text-3xl font-bold text-slate-900 mb-4">
+                  Payment Failed
+                </h3>
+                <p className="text-slate-500 mb-8 max-w-md mx-auto whitespace-pre-line">
+                  {failReason}
+                </p>
+                <button
+                  onClick={resetToHome}
+                  className="rounded-xl border border-slate-200 bg-white px-8 py-3.5 font-bold text-slate-700 transition-all hover:bg-slate-50 shadow-sm"
+                >
+                  Return to Billers
                 </button>
               </div>
             )}
           </div>
-        </main>
-      </div>
-
-      <style jsx>{`
-        .page {
-          display: flex;
-          min-height: 100vh;
-          background: #f3f4f6;
-        }
-        .content {
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-        }
-        .topbar {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          background: white;
-          padding: 1.1rem 2.5rem;
-          border-bottom: 1px solid #eee;
-        }
-        .topbar h1 {
-          font-size: 1.25rem;
-          font-weight: 600;
-          color: #333;
-        }
-        .topbar-icons {
-          display: flex;
-          align-items: center;
-          gap: 1.5rem;
-          color: #666;
-        }
-        .avatar {
-          width: 36px;
-          height: 36px;
-          border-radius: 50%;
-          overflow: hidden;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-        .main {
-          flex: 1;
-          display: flex;
-          justify-content: center;
-          padding: 3rem;
-        }
-        .card-wrapper {
-          width: 100%;
-          max-width: 760px;
-        }
-        .card {
-          background: white;
-          border-radius: 24px;
-          box-shadow: 0 6px 24px rgba(0, 0, 0, 0.06);
-          padding: 3rem;
-        }
-        .biller-grid {
-          display: grid;
-          grid-template-columns: repeat(4, 1fr);
-          gap: 2.5rem 2rem;
-        }
-        .biller-btn {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 0.65rem;
-          background: none;
-          border: none;
-          cursor: pointer;
-        }
-        .biller-icon {
-          width: 76px;
-          height: 76px;
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          transition: transform 0.15s, box-shadow 0.15s;
-        }
-        .biller-icon.small {
-          width: 48px;
-          height: 48px;
-        }
-        .logo-circle {
-          background: white;
-          border: 1px solid #eee;
-        }
-        .biller-btn:hover .biller-icon {
-          transform: scale(1.07);
-          box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
-        }
-        .biller-name {
-          font-size: 0.82rem;
-          color: #555;
-          text-align: center;
-          line-height: 1.25;
-          font-weight: 500;
-        }
-        .back-btn {
-          display: flex;
-          align-items: center;
-          gap: 0.25rem;
-          background: none;
-          border: none;
-          color: #888;
-          font-size: 0.9rem;
-          cursor: pointer;
-          margin-bottom: 1.75rem;
-          padding: 0;
-        }
-        .back-btn:hover {
-          color: #555;
-        }
-        .biller-header {
-          display: flex;
-          align-items: center;
-          gap: 0.85rem;
-          margin-bottom: 2.25rem;
-        }
-        .biller-header-name {
-          font-weight: 600;
-          font-size: 1.05rem;
-          color: #333;
-        }
-        .field {
-          display: flex;
-          flex-direction: column;
-          gap: 0.4rem;
-          margin-bottom: 1.4rem;
-        }
-        .field label {
-          font-size: 0.9rem;
-          color: #666;
-          font-weight: 500;
-        }
-        .field input {
-          background: #f3f4f6;
-          border: 1.5px solid transparent;
-          border-radius: 12px;
-          padding: 0.85rem 1.1rem;
-          font-size: 0.95rem;
-          color: #333;
-          outline: none;
-          transition: box-shadow 0.15s, border-color 0.15s;
-        }
-        .field input:focus {
-          box-shadow: 0 0 0 2px #d8b9d6;
-        }
-        .field input.input-error {
-          border-color: #ef4444;
-          background: #fef2f2;
-        }
-        .error-text {
-          font-size: 0.78rem;
-          color: #ef4444;
-          margin-top: 0.15rem;
-        }
-        .pay-now-btn {
-          margin-top: 1.75rem;
-          width: 100%;
-          background: #9a5c97;
-          color: white;
-          font-weight: 600;
-          font-size: 1rem;
-          padding: 1rem;
-          border: none;
-          border-radius: 999px;
-          cursor: pointer;
-          transition: background 0.2s;
-        }
-        .pay-now-btn:hover {
-          background: #450043;
-        }
-        .status-card {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          text-align: center;
-          padding: 4rem 3rem;
-        }
-        .status-circle {
-          width: 112px;
-          height: 112px;
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          margin-bottom: 1.75rem;
-        }
-        .status-circle.success {
-          background: #dcfce7;
-          color: #22c55e;
-        }
-        .status-circle.failed {
-          background: #fee2e2;
-          color: #ef4444;
-        }
-        .status-card h2 {
-          font-size: 1.4rem;
-          font-weight: 600;
-          color: #333;
-          margin-bottom: 0.6rem;
-        }
-        .status-sub {
-          font-size: 0.9rem;
-          color: #999;
-          margin-bottom: 2.25rem;
-          white-space: pre-line;
-        }
-        .back-home-btn {
-          display: flex;
-          align-items: center;
-          gap: 0.4rem;
-          background: #9a5c97;
-          color: white;
-          font-weight: 600;
-          font-size: 0.9rem;
-          padding: 0.85rem 2.25rem;
-          border: none;
-          border-radius: 999px;
-          cursor: pointer;
-          transition: background 0.2s;
-        }
-        .back-home-btn:hover {
-          background: #450043;
-        }
-      `}</style>
+        </div>
+      </main>
     </div>
   )
 }

@@ -1,5 +1,5 @@
 import crypto from 'node:crypto'
-import { Pool } from 'pg'
+import { Pool, type PoolClient } from 'pg'
 import { hashPassword } from './password'
 
 const connectionString =
@@ -102,6 +102,27 @@ ON CONFLICT DO NOTHING;
 export async function runQuery(text: string, params: unknown[] = []) {
   await ensureDatabase()
   return pool.query(text, params)
+}
+
+// Run a set of statements atomically: BEGIN, run the callback, COMMIT — or
+// ROLLBACK if it throws. Use for multi-write operations (transfers, sign-up
+// creating a user + account) so partial writes can't be committed.
+export async function runTransaction<T>(
+  callback: (client: PoolClient) => Promise<T>
+): Promise<T> {
+  await ensureDatabase()
+  const client = await pool.connect()
+  try {
+    await client.query('BEGIN')
+    const result = await callback(client)
+    await client.query('COMMIT')
+    return result
+  } catch (error) {
+    await client.query('ROLLBACK')
+    throw error
+  } finally {
+    client.release()
+  }
 }
 
 export async function ensureDatabase() {
