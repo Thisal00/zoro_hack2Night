@@ -8,12 +8,14 @@ export async function POST(request: Request) {
     const username = asText(body.username)
     const password = asText(body.password)
 
-    // Accept either the username or the email (the UI offers "Account Name or
-    // Email"). Still verified against the scrypt hash below.
+    // Accept either the username or the email, case-insensitively, so that
+    // e.g. "User@Example.com" and "user@example.com" resolve to the same
+    // account (mobile keyboards routinely auto-capitalize the first letter).
+    // Still verified against the scrypt hash below.
     const sql = `
       SELECT id, username, role, full_name, email, password
       FROM users
-      WHERE username = $1 OR email = $1
+      WHERE LOWER(username) = LOWER($1) OR LOWER(email) = LOWER($1)
       LIMIT 1
     `
     const result = await runQuery(sql, [username])
@@ -21,11 +23,7 @@ export async function POST(request: Request) {
     const row = result.rows[0]
     if (!row || !(await verifyPassword(password, row.password))) {
       return Response.json(
-        {
-          ok: false,
-          message: 'Invalid login.',
-          sql
-        },
+        { ok: false, message: 'Invalid login.' },
         { status: 401 }
       )
     }
@@ -36,14 +34,7 @@ export async function POST(request: Request) {
     const headers = new Headers()
     headers.append('set-cookie', buildSessionCookie(token))
 
-    return Response.json(
-      {
-        ok: true,
-        user,
-        sql
-      },
-      { headers }
-    )
+    return Response.json({ ok: true, user }, { headers })
   } catch (reason) {
     return serviceFailure(reason)
   }

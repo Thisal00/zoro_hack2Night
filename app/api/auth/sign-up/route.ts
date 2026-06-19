@@ -12,7 +12,9 @@ export async function POST(request: Request) {
     const body = await request.json().catch(() => ({}))
     const accountNumber = asText(body.accountNumber).trim()
     const accountName = asText(body.accountName).trim()
-    const email = asText(body.email).trim()
+    // Normalize email to lowercase so logins are case-insensitive and the
+    // duplicate check below catches case-variant addresses.
+    const email = asText(body.email).trim().toLowerCase()
     const password = asText(body.password)
     const confirmPassword = asText(body.confirmPassword)
 

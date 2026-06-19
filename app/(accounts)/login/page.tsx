@@ -132,7 +132,7 @@ export default function LoginPage() {
               <form className="mt-8 space-y-5" onSubmit={handlePasswordLogin}>
                 <div>
                   <label className="mb-2 block text-sm font-medium text-slate-700">
-                    Account Name or Email
+                    Email
                   </label>
                   <input
                     suppressHydrationWarning
