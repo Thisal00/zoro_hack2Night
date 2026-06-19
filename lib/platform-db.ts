@@ -1,4 +1,5 @@
 import { Pool } from 'pg'
+import { hashPassword } from './password'
 
 const connectionString =
   process.env.DATABASE_URL ||
@@ -51,13 +52,38 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 );
 `
 
-const seed = `
-INSERT INTO users (id, username, password, role, full_name, nic, email) VALUES
-  (1, 'dilara', 'password123', 'customer', 'Dilara Perera', '200112345678', 'dilara@example.test'),
-  (2, 'kasun', 'kasun', 'customer', 'Kasun Wickramanayake', '199812345678', 'kasun@example.test'),
-  (3, 'admin', 'admin', 'admin', 'Platform Administrator', '000000000000', 'root@example.test')
-ON CONFLICT (id) DO NOTHING;
+// Demo users. Passwords are hashed at seed time — never stored in plaintext.
+const seedUsers = [
+  {
+    id: 1,
+    username: 'dilara',
+    password: 'password123',
+    role: 'customer',
+    full_name: 'Dilara Perera',
+    nic: '200112345678',
+    email: 'dilara@example.test'
+  },
+  {
+    id: 2,
+    username: 'kasun',
+    password: 'kasun',
+    role: 'customer',
+    full_name: 'Kasun Wickramanayake',
+    nic: '199812345678',
+    email: 'kasun@example.test'
+  },
+  {
+    id: 3,
+    username: 'admin',
+    password: 'admin',
+    role: 'admin',
+    full_name: 'Platform Administrator',
+    nic: '000000000000',
+    email: 'root@example.test'
+  }
+]
 
+const seed = `
 INSERT INTO accounts (user_id, account_number, account_name, balance, pin) VALUES
   (1, '1000003423', 'Dilara Savings', 100000.00, '1234'),
   (1, '1000004876', 'Dilara Expenses', 42000.00, '1234'),
@@ -80,6 +106,20 @@ export async function runQuery(text: string, params: unknown[] = []) {
 export async function ensureDatabase() {
   if (booted) return
   await pool.query(schema)
+
+  for (const u of seedUsers) {
+    const password = await hashPassword(u.password)
+    // Upsert so any pre-existing plaintext password rows are migrated to a hash.
+    await pool.query(
+      `INSERT INTO users (id, username, password, role, full_name, nic, email)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       ON CONFLICT (id) DO UPDATE
+         SET password = EXCLUDED.password
+         WHERE NOT (users.password LIKE 'scrypt$%')`,
+      [u.id, u.username, password, u.role, u.full_name, u.nic, u.email]
+    )
+  }
+
   await pool.query(seed)
   booted = true
 }

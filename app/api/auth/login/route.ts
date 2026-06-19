@@ -1,4 +1,5 @@
 import { asText, runQuery, serviceFailure } from '@/lib/platform-db'
+import { verifyPassword } from '@/lib/password'
 import { buildSessionCookie, createSessionToken } from '@/lib/session'
 
 export async function POST(request: Request) {
@@ -8,14 +9,15 @@ export async function POST(request: Request) {
     const password = asText(body.password)
 
     const sql = `
-      SELECT id, username, role, full_name, email
+      SELECT id, username, role, full_name, email, password
       FROM users
-      WHERE username = $1 AND password = $2
+      WHERE username = $1
       LIMIT 1
     `
-    const result = await runQuery(sql, [username, password])
+    const result = await runQuery(sql, [username])
 
-    if (!result.rows[0]) {
+    const row = result.rows[0]
+    if (!row || !(await verifyPassword(password, row.password))) {
       return Response.json(
         {
           ok: false,
@@ -26,7 +28,8 @@ export async function POST(request: Request) {
       )
     }
 
-    const user = result.rows[0]
+    // Never expose the password hash to the client.
+    const { password: _passwordHash, ...user } = row
     const token = createSessionToken({ id: user.id, role: user.role })
     const headers = new Headers()
     headers.append('set-cookie', buildSessionCookie(token))
