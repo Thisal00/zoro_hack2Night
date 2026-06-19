@@ -1,3 +1,4 @@
+import crypto from 'node:crypto'
 import { Pool } from 'pg'
 import { hashPassword } from './password'
 
@@ -130,21 +131,16 @@ export function asText(value: unknown) {
 }
 
 export function serviceFailure(reason: unknown) {
-  const issue = reason as {
-    message?: string
-    code?: string
-    detail?: string
-    stack?: string
-  }
+  // Log the full error (message, code, stack, etc.) server-side only, keyed by
+  // an id the client can quote. Never leak internals or the connection string.
+  const errorId = crypto.randomUUID()
+  console.error(`[service-failure ${errorId}]`, reason)
 
   return Response.json(
     {
       ok: false,
-      message: issue.message,
-      code: issue.code,
-      detail: issue.detail,
-      trace: issue.stack,
-      databaseUrl: connectionString
+      message: 'Internal server error.',
+      errorId
     },
     { status: 500 }
   )
