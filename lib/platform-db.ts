@@ -122,6 +122,17 @@ export async function ensureDatabase() {
   }
 
   await pool.query(seed)
+
+  // Seed users are inserted with explicit ids, which does NOT advance the
+  // SERIAL sequence. Realign it so the next INSERT (e.g. registration) doesn't
+  // collide on the primary key.
+  await pool.query(
+    `SELECT setval(
+       pg_get_serial_sequence('users', 'id'),
+       GREATEST((SELECT MAX(id) FROM users), 1)
+     )`
+  )
+
   booted = true
 }
 

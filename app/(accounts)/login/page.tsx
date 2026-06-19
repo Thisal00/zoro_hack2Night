@@ -1,7 +1,41 @@
+'use client'
+
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { useState } from 'react'
 import AuthButton from '@/components/authButton'
 
 export default function LoginPage() {
+  const router = useRouter()
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setError('')
+    setLoading(true)
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || !data.ok) {
+        setError(data.message || 'Invalid login.')
+        return
+      }
+      router.push('/dashboard')
+      router.refresh()
+    } catch {
+      setError('Something went wrong. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <section className="mx-auto flex min-h-[480px] w-full max-w-[1060px] overflow-hidden rounded-[56px] bg-white shadow-[0_1px_3px_0_rgba(0,0,0,0.30),0_4px_8px_3px_rgba(0,0,0,0.15)] lg:min-h-[660px]">
       <aside
@@ -25,7 +59,10 @@ export default function LoginPage() {
       </aside>
 
       <div className="flex flex-1 items-center justify-center bg-white px-8 py-10">
-        <div className="w-full max-w-[450px] text-center">
+        <form
+          onSubmit={handleSubmit}
+          className="w-full max-w-[450px] text-center"
+        >
           <h1 className="mb-11 text-[2.45rem] font-bold text-black text-balance">
             LOGIN
           </h1>
@@ -33,7 +70,7 @@ export default function LoginPage() {
           <div className="space-y-5">
             <div className="relative">
               <label className="sr-only" htmlFor="login-account">
-                Account name
+                Username
               </label>
               <img
                 src="/person.png"
@@ -43,7 +80,11 @@ export default function LoginPage() {
               />
               <input
                 id="login-account"
-                placeholder="Account name"
+                name="username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                autoComplete="username"
+                placeholder="Username"
                 className="h-[64px] w-full rounded-[40px] border-0 bg-[#d9d9d9] px-8 pl-20 text-lg text-black shadow-[0_1px_3px_0_rgba(0,0,0,0.30),0_4px_8px_3px_rgba(0,0,0,0.15)] outline-none transition-shadow placeholder:text-black/45 focus:shadow-[0_4px_4px_0_rgba(0,0,0,0.30),0_8px_12px_6px_rgba(0,0,0,0.15)]"
               />
             </div>
@@ -60,12 +101,22 @@ export default function LoginPage() {
               />
               <input
                 id="login-password"
+                name="password"
                 type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
                 placeholder="Password"
                 className="h-[64px] w-full rounded-[40px] border-0 bg-[#d9d9d9] px-8 pl-20 text-lg text-black shadow-[0_1px_3px_0_rgba(0,0,0,0.30),0_4px_8px_3px_rgba(0,0,0,0.15)] outline-none transition-shadow placeholder:text-black/45 focus:shadow-[0_4px_4px_0_rgba(0,0,0,0.30),0_8px_12px_6px_rgba(0,0,0,0.15)]"
               />
             </div>
           </div>
+
+          {error && (
+            <p className="mt-4 text-sm font-semibold text-red-600" role="alert">
+              {error}
+            </p>
+          )}
 
           <div className="mt-3 text-right">
             <Link
@@ -76,7 +127,9 @@ export default function LoginPage() {
             </Link>
           </div>
 
-          <AuthButton className="mt-8">SIGN IN</AuthButton>
+          <AuthButton type="submit" disabled={loading} className="mt-8">
+            {loading ? 'SIGNING IN…' : 'SIGN IN'}
+          </AuthButton>
 
           <p className="mt-6 text-sm font-bold text-black">
             Don&apos;t have an account?
@@ -84,7 +137,7 @@ export default function LoginPage() {
           <Link href="/sign-up" className="text-2xl font-bold text-black">
             SIGN UP
           </Link>
-        </div>
+        </form>
       </div>
     </section>
   )

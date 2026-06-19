@@ -9,6 +9,21 @@ export default function Home() {
           Manage your finances effortlessly
         </p>
 
+        <div className="flex flex-wrap justify-center gap-4 mb-10">
+          <Link
+            href="/login"
+            className="px-8 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-semibold"
+          >
+            Sign in
+          </Link>
+          <Link
+            href="/sign-up"
+            className="px-8 py-3 border border-indigo-600 text-indigo-600 rounded-lg hover:bg-indigo-50 transition font-semibold"
+          >
+            Create account
+          </Link>
+        </div>
+
         <nav className="flex flex-wrap justify-center gap-4">
           <Link
             href="/bank-accounts"
