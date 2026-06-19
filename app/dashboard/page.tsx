@@ -43,7 +43,7 @@ export default function Dashboard() {
             <h2 className="welcome-title">Welcome back, Dilara!</h2>
             <div className="balance-card">
               <p className="balance-label">Current Balance</p>
-              <p className="balance-amount">Rs. 100, 000</p>
+              <p className="balance-amount">Rs. 100,000</p>
               <ChevronRight className="balance-chevron" size={30} />
             </div>
             <div className="carousel-dots">
