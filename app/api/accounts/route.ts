@@ -1,23 +1,24 @@
-import { asText, runQuery, serviceFailure } from '@/lib/platform-db'
+import { runQuery, serviceFailure } from '@/lib/platform-db'
+import { getSession } from '@/lib/session'
 
 export async function GET(request: Request) {
   try {
-    const { searchParams } = new URL(request.url)
-    const userId = asText(searchParams.get('userId') || '1')
-    const includePins =
-      asText(searchParams.get('includePins') || 'false') === 'true'
-    const columns = includePins
-      ? 'a.*, u.username, u.full_name, u.email'
-      : 'a.id, a.user_id, a.account_number, a.account_name, a.balance, u.username, u.full_name'
+    // Authorize against the session; the caller only ever sees their own
+    // accounts. PINs are never returned.
+    const session = getSession(request)
+    if (!session) {
+      return Response.json({ ok: false, message: 'Unauthorized.' }, { status: 401 })
+    }
 
     const sql = `
-      SELECT ${columns}
+      SELECT a.id, a.user_id, a.account_number, a.account_name, a.balance,
+             u.username, u.full_name
       FROM accounts a
       JOIN users u ON u.id = a.user_id
       WHERE a.user_id = $1
       ORDER BY a.id
     `
-    const result = await runQuery(sql, [userId])
+    const result = await runQuery(sql, [session.sub])
 
     return Response.json({
       ok: true,
