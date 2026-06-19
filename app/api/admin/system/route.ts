@@ -7,7 +7,10 @@ export async function GET(request: Request) {
     // signed token, not a client-supplied cookie, so it cannot be forged.
     const session = getSession(request)
     if (!session || session.role !== 'admin') {
-      return Response.json({ ok: false, message: 'Forbidden.' }, { status: 403 })
+      return Response.json(
+        { ok: false, message: 'Forbidden.' },
+        { status: 403 }
+      )
     }
 
     const users = await runQuery(

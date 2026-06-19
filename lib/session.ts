@@ -2,7 +2,7 @@ import crypto from 'node:crypto'
 
 // Signed, server-validated sessions. The session payload is HMAC-SHA256
 // signed with SESSION_SECRET, so a client cannot forge identity or role.
-const COOKIE_NAME = 'session'
+export const COOKIE_NAME = 'session'
 const MAX_AGE_SECONDS = 60 * 60 * 8 // 8 hours
 
 export type Session = { sub: number; role: string }
@@ -63,6 +63,13 @@ export function verifySessionToken(token: string | undefined): Session | null {
 export function buildSessionCookie(token: string) {
   const secure = process.env.NODE_ENV === 'production' ? ' Secure;' : ''
   return `${COOKIE_NAME}=${token}; Path=/; HttpOnly;${secure} SameSite=Strict; Max-Age=${MAX_AGE_SECONDS}`
+}
+
+// Expire the session cookie immediately (logout). Same attributes as the
+// session cookie so the browser reliably overwrites and drops it.
+export function buildClearedSessionCookie() {
+  const secure = process.env.NODE_ENV === 'production' ? ' Secure;' : ''
+  return `${COOKIE_NAME}=; Path=/; HttpOnly;${secure} SameSite=Strict; Max-Age=0`
 }
 
 function readSessionCookie(request: Request): string | undefined {

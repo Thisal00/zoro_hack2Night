@@ -1,290 +1,141 @@
 'use client'
 
+import Image from 'next/image'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-
-// Minimal icon components to avoid external dependency
-type IconProps = { size?: number }
-const LayoutGrid = ({ size = 18 }: IconProps) => (
-  <svg
-    width={size}
-    height={size}
-    viewBox="0 0 24 24"
-    fill="none"
-    xmlns="http://www.w3.org/2000/svg"
-  >
-    <rect
-      x="3"
-      y="3"
-      width="8"
-      height="8"
-      stroke="currentColor"
-      strokeWidth="1.5"
-    />
-    <rect
-      x="13"
-      y="3"
-      width="8"
-      height="8"
-      stroke="currentColor"
-      strokeWidth="1.5"
-    />
-    <rect
-      x="3"
-      y="13"
-      width="8"
-      height="8"
-      stroke="currentColor"
-      strokeWidth="1.5"
-    />
-    <rect
-      x="13"
-      y="13"
-      width="8"
-      height="8"
-      stroke="currentColor"
-      strokeWidth="1.5"
-    />
-  </svg>
-)
-
-const Settings = ({ size = 24 }: IconProps) => (
-  <svg
-    width={size}
-    height={size}
-    viewBox="0 0 24 24"
-    fill="none"
-    xmlns="http://www.w3.org/2000/svg"
-  >
-    <path
-      d="M12 15.5A3.5 3.5 0 1 0 12 8.5a3.5 3.5 0 0 0 0 7z"
-      stroke="currentColor"
-      strokeWidth="1.5"
-    />
-    <path
-      d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06A2 2 0 1 1 2.28 16.9l.06-.06c.45-.45.58-1.1.33-1.82a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09c.7 0 1.27-.4 1.51-1a1.65 1.65 0 0 0-.33-1.82L4.3 4.3A2 2 0 1 1 7.12 1.47l.06.06c.45.45 1.1.58 1.82.33.6-.25 1.26-.25 1.86 0 .72.25 1.37.12 1.82-.33l.06-.06A2 2 0 1 1 19.7 4.3l-.06.06c-.45.45-.58 1.1-.33 1.82.25.6.25 1.26 0 1.86a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83l-.06.06z"
-      stroke="currentColor"
-      strokeWidth="1"
-    />
-  </svg>
-)
-
-const HelpCircle = ({ size = 24 }: IconProps) => (
-  <svg
-    width={size}
-    height={size}
-    viewBox="0 0 24 24"
-    fill="none"
-    xmlns="http://www.w3.org/2000/svg"
-  >
-    <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.5" />
-    <path
-      d="M12 17h.01"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-    />
-    <path
-      d="M9.5 10a2.5 2.5 0 1 1 5 0c0 1.75-2 2.25-2 3.5"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-    />
-  </svg>
-)
+import { usePathname, useRouter } from 'next/navigation'
 
 export default function Sidebar() {
   const pathname = usePathname()
+  const router = useRouter()
 
-  const menuItems = [
-    { label: 'DASHBOARD', path: '/dashboard' },
-    { label: 'ACCOUNTS', path: '/bank-accounts' },
-    { label: 'BANK TRANSFER', path: '/bank-transfer' },
-    { label: 'PAY BILLS', path: '/pay-bills' },
-    { label: 'SMART SPEND', path: '/smart-spend' },
-    { label: 'E-STATEMENT', path: '/e-statement' }
+  const links = [
+    {
+      name: 'Dashboard',
+      href: '/dashboard',
+      icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6'
+    },
+    {
+      name: 'Bank Transfer',
+      href: '/bank-transfer',
+      icon: 'M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4'
+    },
+    {
+      name: 'Pay Bills',
+      href: '/pay-bills',
+      icon: 'M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2zM10 8.5a.5.5 0 11-1 0 .5.5 0 011 0zm5 5a.5.5 0 11-1 0 .5.5 0 011 0z'
+    },
+    {
+      name: 'Smart Spend',
+      href: '/smart-spend',
+      icon: 'M13 7h8m0 0v8m0-8l-8 8-4-4-6 6'
+    },
+    {
+      name: 'Bank Accounts',
+      href: '/bank-accounts',
+      icon: 'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z'
+    },
+    {
+      name: 'E-Statement',
+      href: '/e-statement',
+      icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'
+    },
+    {
+      name: 'Profile',
+      href: '/profile',
+      icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z'
+    }
   ]
 
+  const handleLogout = async () => {
+    // The session is an HttpOnly cookie, so it can only be cleared server-side.
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' })
+    } finally {
+      router.push('/login')
+      router.refresh()
+    }
+  }
+
   return (
-    <aside className="sidebar">
-      <div className="sidebar-top">
-        {/* Logo */}
-        <div className="logo-wrapper">
-          <img src="/loginlogo.png" alt="logo" className="logo-img" />
-          <h1 className="brand-name">NOVA BANK</h1>
+    <aside className="w-64 h-full bg-white border-r border-slate-200 flex flex-col pt-8 pb-6 px-4">
+      {/* Brand Logo */}
+      <div className="flex items-center gap-3 px-2 mb-10">
+        <div className="size-8 rounded-lg bg-[#e65a28] flex items-center justify-center">
+          <svg
+            className="w-5 h-5 text-white"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+          </svg>
         </div>
-
-        {/* Menu */}
-        <nav className="menu">
-          {menuItems.map((item) => {
-            const isActive = pathname === item.path
-            return (
-              <Link key={item.label} href={item.path} className="menu-link">
-                <button className={`menu-item ${isActive ? 'active' : ''}`}>
-                  {item.label === 'DASHBOARD' && <LayoutGrid size={18} />}
-                  {item.label}
-                </button>
-              </Link>
-            )
-          })}
-        </nav>
+        <span className="text-xl font-black text-slate-900 tracking-tight">
+          Nova Bank
+        </span>
       </div>
 
-      <div className="sidebar-footer">
-        <Settings size={24} />
-        <HelpCircle size={24} />
+      {/* Navigation Links */}
+      <nav className="flex-1 space-y-2">
+        {links.map((link) => {
+          const isActive =
+            pathname === link.href ||
+            (pathname.startsWith(link.href) && link.href !== '/')
+
+          return (
+            <Link
+              key={link.name}
+              href={link.href}
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium ${
+                isActive
+                  ? 'bg-orange-50 text-[#e65a28]'
+                  : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
+              }`}
+            >
+              <svg
+                className={`w-5 h-5 ${isActive ? 'text-[#e65a28]' : 'text-slate-400'}`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={isActive ? '2.5' : '2'}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d={link.icon}
+                />
+              </svg>
+              {link.name}
+            </Link>
+          )
+        })}
+      </nav>
+
+      {/* Bottom Area: User / Logout */}
+      <div className="mt-auto border-t border-slate-100 pt-4">
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium text-slate-500 hover:bg-red-50 hover:text-red-600 group"
+        >
+          <svg
+            className="w-5 h-5 text-slate-400 group-hover:text-red-500 transition-colors"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+            />
+          </svg>
+          Logout
+        </button>
       </div>
-
-      <style jsx>{`
-        .sidebar {
-          width: 250px;
-          background: #450043;
-          display: flex;
-          flex-direction: column;
-          justify-content: space-between;
-          border-radius: 0 25px 25px 0;
-          box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-          flex-shrink: 0;
-        }
-
-        .sidebar-top {
-          display: flex;
-          flex-direction: column;
-        }
-
-        .logo-wrapper {
-          display: flex;
-          align-items: center;
-          gap: 1rem;
-          padding: 1rem 0.75rem;
-        }
-
-        .logo-img {
-          width: 75px;
-          height: 75px;
-          border-radius: 50%;
-          background: white;
-          object-fit: cover;
-        }
-
-        .brand-name {
-          color: white;
-          font-size: 18px;
-          font-weight: 800;
-          letter-spacing: 0.5px;
-        }
-
-        .menu {
-          margin-top: 3rem;
-          padding: 0 1rem;
-          display: flex;
-          flex-direction: column;
-          gap: 1rem;
-        }
-
-        .menu-link {
-          text-decoration: none;
-        }
-
-        .menu-item {
-          height: 50px;
-          border: none;
-          background: transparent;
-          color: white;
-          text-align: left;
-          padding: 0 1.5rem;
-          border-radius: 25px;
-          transition: all 0.3s;
-          font-weight: 600;
-          font-size: 0.9rem;
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-          cursor: pointer;
-          width: 100%;
-        }
-
-        .menu-item.active {
-          background: #9a5c97;
-          box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-        }
-
-        .menu-item:hover {
-          background: #9a5c97;
-          box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-        }
-
-        .sidebar-footer {
-          display: flex;
-          gap: 1.5rem;
-          padding: 1.5rem;
-          color: white;
-        }
-
-        @media (max-width: 768px) {
-          .sidebar {
-            width: 100%;
-            border-radius: 0 0 25px 25px;
-            flex-direction: row;
-            flex-wrap: wrap;
-            padding: 0.75rem 1rem;
-            align-items: center;
-          }
-
-          .sidebar-top {
-            flex-direction: row;
-            align-items: center;
-            gap: 1rem;
-            flex: 1;
-          }
-
-          .logo-wrapper {
-            padding: 0;
-          }
-          .logo-img {
-            width: 50px;
-            height: 50px;
-          }
-          .brand-name {
-            font-size: 16px;
-          }
-
-          .menu {
-            flex-direction: row;
-            flex-wrap: wrap;
-            margin-top: 0;
-            padding: 0;
-            gap: 0.5rem;
-          }
-          .menu-item {
-            padding: 0 1rem;
-            height: 40px;
-            font-size: 0.75rem;
-            white-space: nowrap;
-            width: auto;
-          }
-
-          .sidebar-footer {
-            padding: 0;
-            gap: 1rem;
-          }
-        }
-
-        @media (max-width: 480px) {
-          .menu-item {
-            font-size: 0.7rem;
-            padding: 0 0.75rem;
-            height: 34px;
-          }
-          .brand-name {
-            font-size: 14px;
-          }
-          .logo-img {
-            width: 40px;
-            height: 40px;
-          }
-        }
-      `}</style>
     </aside>
   )
 }

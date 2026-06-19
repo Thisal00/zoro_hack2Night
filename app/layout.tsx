@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Geist, Geist_Mono, Bai_Jamjuree } from 'next/font/google'
+import { Bai_Jamjuree, Geist, Geist_Mono } from 'next/font/google'
 import './globals.css'
 
 const geistSans = Geist({
@@ -19,8 +19,8 @@ const bai = Bai_Jamjuree({
 })
 
 export const metadata: Metadata = {
-  title: 'Smart Spend - Banking Solutions',
-  description: 'Manage your finances with Smart Spend'
+  title: 'Nova Bank',
+  description: 'Manage your finances with Nova Bank'
 }
 
 export default function RootLayout({
