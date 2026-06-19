@@ -17,16 +17,24 @@ export async function POST(request: Request) {
     const email = asText(body.email).trim().toLowerCase()
     const password = asText(body.password)
     const confirmPassword = asText(body.confirmPassword)
+    const pin = asText(body.pin).trim()
 
     if (
       !accountNumber ||
       !accountName ||
       !email ||
       !password ||
-      !confirmPassword
+      !confirmPassword ||
+      !pin
     ) {
       return Response.json(
         { ok: false, message: 'All fields are required.' },
+        { status: 400 }
+      )
+    }
+    if (!/^\d{4}$/.test(pin)) {
+      return Response.json(
+        { ok: false, message: 'Transaction PIN must be exactly 4 digits.' },
         { status: 400 }
       )
     }
@@ -86,8 +94,8 @@ export async function POST(request: Request) {
       const created = userResult.rows[0]
       await client.query(
         `INSERT INTO accounts (user_id, account_number, account_name, balance, pin)
-         VALUES ($1, $2, $3, 0, '0000')`,
-        [created.id, accountNumber, accountName]
+         VALUES ($1, $2, $3, 0, $4)`,
+        [created.id, accountNumber, accountName, pin]
       )
       return created
     })

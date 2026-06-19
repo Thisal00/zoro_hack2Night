@@ -46,7 +46,9 @@ export default function SignUpPage() {
     branch: '',
     email: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    pin: '',
+    confirmPin: ''
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -61,6 +63,16 @@ export default function SignUpPage() {
 
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match')
+      return
+    }
+
+    if (!/^\d{4}$/.test(formData.pin)) {
+      setError('Transaction PIN must be exactly 4 digits')
+      return
+    }
+
+    if (formData.pin !== formData.confirmPin) {
+      setError('PINs do not match')
       return
     }
 
@@ -188,7 +200,45 @@ export default function SignUpPage() {
                   className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:border-[#e65a28] focus:ring-1 focus:ring-[#e65a28] transition-colors focus:bg-white"
                 />
               </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-slate-700">
+                  Transaction PIN
+                </label>
+                <input
+                  name="pin"
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={4}
+                  value={formData.pin}
+                  onChange={handleChange}
+                  placeholder="4 digits"
+                  required
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:border-[#e65a28] focus:ring-1 focus:ring-[#e65a28] transition-colors focus:bg-white"
+                />
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-medium text-slate-700">
+                  Confirm PIN
+                </label>
+                <input
+                  name="confirmPin"
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={4}
+                  value={formData.confirmPin}
+                  onChange={handleChange}
+                  placeholder="4 digits"
+                  required
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:border-[#e65a28] focus:ring-1 focus:ring-[#e65a28] transition-colors focus:bg-white"
+                />
+              </div>
             </div>
+
+            <p className="-mt-2 text-xs text-slate-500">
+              You'll use this 4-digit PIN to authorize transfers. Keep it safe —
+              it can't be recovered.
+            </p>
 
             <button
               type="submit"
