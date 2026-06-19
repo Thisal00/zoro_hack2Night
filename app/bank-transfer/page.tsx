@@ -1,8 +1,16 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import Sidebar from '@/components/sidebar'
+
+function getCookie(name: string) {
+  if (typeof document === 'undefined') return null
+  const value = `; ${document.cookie}`
+  const parts = value.split(`; ${name}=`)
+  if (parts.length === 2) return parts.pop()?.split(';').shift()
+  return null
+}
 
 type Errors = Partial<{
   amount: string
@@ -12,6 +20,8 @@ type Errors = Partial<{
 }>
 
 export default function Home() {
+  const [fromAccount, setFromAccount] = useState('')
+  const [currentBalance, setCurrentBalance] = useState(0)
   const [amount, setAmount] = useState('')
   const [accountNumber, setAccountNumber] = useState('')
   const [accountName, setAccountName] = useState('')
@@ -22,6 +32,25 @@ export default function Home() {
     'form'
   )
   const [confirmation, setConfirmation] = useState<string | null>(null)
+  const [failReason, setFailReason] = useState<string>('')
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    async function loadAccount() {
+      const userId = getCookie('user_id') || '1'
+      try {
+        const res = await fetch(`/api/accounts?userId=${userId}`)
+        const data = await res.json()
+        if (data.ok && data.accounts.length > 0) {
+          setFromAccount(data.accounts[0].account_number)
+          setCurrentBalance(Number(data.accounts[0].balance))
+        }
+      } catch (err) {
+        console.error('Failed to fetch account', err)
+      }
+    }
+    loadAccount()
+  }, [])
 
   function validate() {
     const e: Errors = {}
@@ -44,17 +73,48 @@ export default function Home() {
   function handleNext(e: React.FormEvent) {
     e.preventDefault()
     if (validate()) {
-      // show confirmation step first
+      // Check balance first
+      if (Number(amount) + 50 > currentBalance) { // Add 50 for fee
+        setFailReason(`Insufficient Balance\nCurrent Balance is: Rs.${currentBalance.toLocaleString()}`)
+        setStep('failure')
+        return
+      }
       setStep('confirm')
     }
   }
 
-  function handleTransfer(e: React.FormEvent) {
+  async function handleTransfer(e: React.FormEvent) {
     e.preventDefault()
-    // simulate transfer completion and show success page
-    const conf = String(Math.floor(10000000 + Math.random() * 89999999))
-    setConfirmation(conf)
-    setStep('success' as any)
+    setLoading(true)
+    try {
+      const userId = getCookie('user_id') || '1'
+      const res = await fetch('/api/transfer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fromAccount,
+          toAccount: accountNumber,
+          amount: Number(amount) + 50, // Including the 50 fee
+          description: description || `Transfer to ${accountName}`,
+          userId: Number(userId)
+        })
+      })
+      const data = await res.json()
+      
+      if (res.ok && data.ok) {
+        setConfirmation(data.transactionId || String(Math.floor(10000000 + Math.random() * 89999999)))
+        setStep('success')
+        setCurrentBalance(prev => prev - (Number(amount) + 50))
+      } else {
+        setFailReason(data.message || 'Transaction failed on the server')
+        setStep('failure')
+      }
+    } catch (err) {
+      setFailReason('Network error occurred')
+      setStep('failure')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -302,10 +362,8 @@ export default function Home() {
                 <h3 className="text-center text-2xl font-semibold mb-4">
                   Transaction Failed!
                 </h3>
-                <p className="text-center text-sm text-gray-500 mb-6">
-                  Insufficient Balance
-                  <br />
-                  Current Balance is: Rs.500
+                <p className="text-center text-sm text-gray-500 mb-6 whitespace-pre-line">
+                  {failReason}
                 </p>
 
                 <div className="flex justify-center">

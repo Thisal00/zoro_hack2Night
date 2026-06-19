@@ -1,27 +1,49 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import Sidebar from '../../components/sidebar'
 import { Bell, ChevronRight, Search } from '../../components/Icons'
 
-const transactions = [
-  {
-    date: 'Oct, 16 2025',
-    account: '......3423',
-    amount: '-Rs. 4500.00'
-  },
-  {
-    date: 'Oct, 16 2025',
-    account: '......4876',
-    amount: '-Rs. 10,000.00'
-  },
-  {
-    date: 'Oct, 16 2025',
-    account: '......6754',
-    amount: '-Rs. 9870.00'
-  }
-]
+function getCookie(name: string) {
+  if (typeof document === 'undefined') return null
+  const value = `; ${document.cookie}`
+  const parts = value.split(`; ${name}=`)
+  if (parts.length === 2) return parts.pop()?.split(';').shift()
+  return null
+}
 
 export default function Dashboard() {
+  const [account, setAccount] = useState<any>(null)
+  const [transactions, setTransactions] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const userId = getCookie('user_id') || '1'
+        const accountsRes = await fetch(`/api/accounts?userId=${userId}`)
+        const accountsData = await accountsRes.json()
+
+        if (accountsData.ok && accountsData.accounts.length > 0) {
+          const mainAccount = accountsData.accounts[0]
+          setAccount(mainAccount)
+
+          const txRes = await fetch(`/api/transactions?account=${mainAccount.account_number}`)
+          const txData = await txRes.json()
+          if (txData.ok) {
+            setTransactions(txData.transactions)
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch dashboard data', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadData()
+  }, [])
+
   return (
     <main className="dashboard">
       <Sidebar />
@@ -40,10 +62,14 @@ export default function Dashboard() {
         {/* Top Section */}
         <div className="top-section">
           <div className="welcome-card">
-            <h2 className="welcome-title">Welcome back, Dilara!</h2>
+            <h2 className="welcome-title">
+              Welcome back, {loading ? '...' : account?.full_name?.split(' ')[0] || 'User'}!
+            </h2>
             <div className="balance-card">
               <p className="balance-label">Current Balance</p>
-              <p className="balance-amount">Rs. 100, 000</p>
+              <p className="balance-amount">
+                Rs. {loading ? '...' : Number(account?.balance || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </p>
               <ChevronRight className="balance-chevron" size={30} />
             </div>
             <div className="carousel-dots">
@@ -82,15 +108,27 @@ export default function Dashboard() {
         <div className="transactions-section">
           <h2 className="transactions-title">Recent Transactions</h2>
           <div className="transactions-card">
-            {transactions.map((t, index) => (
-              <div key={index} className="transaction-item">
-                <img src="/person-logo.png" alt="user" className="avatar" />
-                <span className="transaction-date">{t.date}</span>
-                <span className="transaction-account">{t.account}</span>
-                <span className="transaction-amount">{t.amount}</span>
-                <span className="transaction-status">Success</span>
-              </div>
-            ))}
+            {loading ? (
+              <p>Loading transactions...</p>
+            ) : transactions.length === 0 ? (
+              <p>No recent transactions.</p>
+            ) : (
+              transactions.map((t, index) => (
+                <div key={index} className="transaction-item">
+                  <img src="/person-logo.png" alt="user" className="avatar" />
+                  <span className="transaction-date">
+                    {new Date(t.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </span>
+                  <span className="transaction-account">
+                    {t.from_account === account?.account_number ? t.to_account : t.from_account}
+                  </span>
+                  <span className="transaction-amount" style={{ color: t.from_account === account?.account_number ? 'red' : 'green' }}>
+                    {t.from_account === account?.account_number ? '-' : '+'}Rs. {Number(t.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </span>
+                  <span className="transaction-status">{t.status || 'Success'}</span>
+                </div>
+              ))
+            )}
             <div className="view-all">
               View all
               <ChevronRight size={15} />

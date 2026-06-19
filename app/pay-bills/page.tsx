@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import Sidebar from '../../components/sidebar'
 import {
@@ -10,6 +10,14 @@ import {
   AlertTriangle,
   ChevronLeft
 } from '../../components/Icons'
+
+function getCookie(name: string) {
+  if (typeof document === 'undefined') return null
+  const value = `; ${document.cookie}`
+  const parts = value.split(`; ${name}=`)
+  if (parts.length === 2) return parts.pop()?.split(';').shift()
+  return null
+}
 
 type Biller = {
   id: string
@@ -34,8 +42,6 @@ const billers: Biller[] = [
 
 type Screen = 'select' | 'form' | 'success' | 'failed'
 
-const MOCK_BALANCE = 5000
-
 type FormErrors = {
   accountNumber?: string
   billId?: string
@@ -52,6 +58,26 @@ export default function PayBillsPage() {
   const [confirmationNumber, setConfirmationNumber] = useState('')
   const [failReason, setFailReason] = useState('')
   const [errors, setErrors] = useState<FormErrors>({})
+  const [loading, setLoading] = useState(false)
+  const [fromAccount, setFromAccount] = useState('')
+  const [currentBalance, setCurrentBalance] = useState(0)
+
+  useEffect(() => {
+    async function loadAccount() {
+      const userId = getCookie('user_id') || '1'
+      try {
+        const res = await fetch(`/api/accounts?userId=${userId}`)
+        const data = await res.json()
+        if (data.ok && data.accounts.length > 0) {
+          setFromAccount(data.accounts[0].account_number)
+          setCurrentBalance(Number(data.accounts[0].balance))
+        }
+      } catch (err) {
+        console.error('Failed to fetch account', err)
+      }
+    }
+    loadAccount()
+  }, [])
 
   function handleSelectBiller(biller: Biller) {
     setSelectedBiller(biller)
@@ -87,24 +113,51 @@ export default function PayBillsPage() {
     return Object.keys(newErrors).length === 0
   }
 
-  function handlePayNow() {
+  async function handlePayNow() {
     if (!validateForm()) {
       return
     }
 
     const amount = Number(dueAmount)
 
-    if (amount > MOCK_BALANCE) {
+    if (amount > currentBalance) {
       setFailReason(
-        `Insufficient Balance\nCurrent Balance is: Rs.${MOCK_BALANCE}`
+        `Insufficient Balance\nCurrent Balance is: Rs.${currentBalance.toLocaleString()}`
       )
       setScreen('failed')
       return
     }
 
-    const confNum = Math.floor(10000000 + Math.random() * 90000000).toString()
-    setConfirmationNumber(confNum)
-    setScreen('success')
+    setLoading(true)
+    try {
+      const userId = getCookie('user_id') || '1'
+      const res = await fetch('/api/transfer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fromAccount,
+          toAccount: `${selectedBiller?.name} (${accountNumber})`, // Treating biller as an account
+          amount,
+          description: `Bill Payment - ${billId} ${remarks}`,
+          userId: Number(userId)
+        })
+      })
+      const data = await res.json()
+      
+      if (res.ok && data.ok) {
+        setConfirmationNumber(data.transactionId || String(Math.floor(10000000 + Math.random() * 89999999)))
+        setScreen('success')
+        setCurrentBalance(prev => prev - amount)
+      } else {
+        setFailReason(data.message || 'Transaction failed on the server')
+        setScreen('failed')
+      }
+    } catch (err) {
+      setFailReason('Network error occurred')
+      setScreen('failed')
+    } finally {
+      setLoading(false)
+    }
   }
 
   function resetToHome() {

@@ -72,10 +72,26 @@ INSERT INTO transactions (from_account, to_account, amount, description, created
 ON CONFLICT DO NOTHING;
 `
 
-export async function runStatement(sql: string) {
+export async function runStatement(sql: string, params: any[] = []) {
   await ensureDatabase()
-  console.log('[bank-sql]', sql)
-  return pool.query(sql)
+  console.log('[bank-sql]', sql, params)
+  return pool.query(sql, params)
+}
+
+export async function runTransaction(callback: (client: any) => Promise<any>) {
+  await ensureDatabase()
+  const client = await pool.connect()
+  try {
+    await client.query('BEGIN')
+    const result = await callback(client)
+    await client.query('COMMIT')
+    return result
+  } catch (e) {
+    await client.query('ROLLBACK')
+    throw e
+  } finally {
+    client.release()
+  }
 }
 
 export async function ensureDatabase() {

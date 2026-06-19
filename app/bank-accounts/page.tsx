@@ -42,8 +42,37 @@ export default function AccountsPage() {
     nickname: ''
   })
 
-  // Load data if in edit mode
+  // Accounts state
+  const [accounts, setAccounts] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  function getCookie(name: string) {
+    if (typeof document === 'undefined') return null
+    const value = `; ${document.cookie}`
+    const parts = value.split(`; ${name}=`)
+    if (parts.length === 2) return parts.pop()?.split(';').shift()
+    return null
+  }
+
+  const loadAccounts = async () => {
+    setLoading(true)
+    const userId = getCookie('user_id') || '1'
+    try {
+      const res = await fetch(`/api/accounts?userId=${userId}`)
+      const data = await res.json()
+      if (data.ok) {
+        setAccounts(data.accounts)
+      }
+    } catch (err) {
+      console.error('Failed to load accounts', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Load data
   useEffect(() => {
+    loadAccounts()
     if (isEditMode) {
       setFormData({
         accountNumber: accountNumberParam,
@@ -185,7 +214,7 @@ export default function AccountsPage() {
     }))
   }
 
-  const handleAddAccount = (e: React.FormEvent) => {
+  const handleAddAccount = async (e: React.FormEvent) => {
     e.preventDefault()
 
     if (!validateForm()) {
@@ -197,10 +226,30 @@ export default function AccountsPage() {
       return
     }
 
-    console.log('Adding new account:', formData)
-    alert('Account added successfully!')
-    resetForm()
-    goToList()
+    try {
+      const userId = getCookie('user_id') || '1'
+      const res = await fetch('/api/accounts/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: Number(userId),
+          accountNumber: formData.accountNumber,
+          accountName: formData.nickname || formData.accountName // Using nickname as accountName for display
+        })
+      })
+      const data = await res.json()
+      
+      if (res.ok && data.ok) {
+        alert('Account added successfully!')
+        resetForm()
+        loadAccounts()
+        goToList()
+      } else {
+        alert(data.message || 'Failed to add account')
+      }
+    } catch (err) {
+      alert('Network error occurred')
+    }
   }
 
   const handleUpdateAccount = (e: React.FormEvent) => {
@@ -218,7 +267,7 @@ export default function AccountsPage() {
     )
   }
 
-  const handleEditNickname = (e: React.FormEvent) => {
+  const handleEditNickname = async (e: React.FormEvent) => {
     e.preventDefault()
 
     if (!nickname.trim()) {
@@ -231,10 +280,30 @@ export default function AccountsPage() {
       return
     }
 
-    console.log('Updating nickname to:', nickname)
-    alert(`Nickname updated to: ${nickname}`)
-    resetForm()
-    goToList()
+    try {
+      const userId = getCookie('user_id') || '1'
+      const res = await fetch('/api/accounts/update', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: Number(userId),
+          accountNumber: formData.accountNumber,
+          newNickname: nickname
+        })
+      })
+      const data = await res.json()
+      
+      if (res.ok && data.ok) {
+        alert(`Nickname updated to: ${nickname}`)
+        resetForm()
+        loadAccounts()
+        goToList()
+      } else {
+        alert(data.message || 'Failed to update nickname')
+      }
+    } catch (err) {
+      alert('Network error occurred')
+    }
   }
 
   const handleCancel = () => {
@@ -267,28 +336,40 @@ export default function AccountsPage() {
             </header>
 
             <div className={styles.cardsContainer}>
-              <div className={styles.accountCard}>
-                <div className={styles.iconEdit} onClick={goToEdit}>
-                  ✏️
-                </div>
-                <div className={styles.iconDelete}>🗑️</div>
-                <div className={styles.accountCardContent}>
-                  <h2 className={styles.accountName}>Anura</h2>
-                  <div className={styles.accountAvatar}>
-                    <Image
-                      src="/account-logo.png"
-                      alt="profile"
-                      width={100}
-                      height={100}
-                      style={{ objectFit: 'cover', borderRadius: '50%' }}
-                    />
+              {loading ? (
+                <p>Loading accounts...</p>
+              ) : accounts.length === 0 ? (
+                <p>No accounts found.</p>
+              ) : (
+                accounts.map((acc, index) => (
+                  <div key={index} className={styles.accountCard}>
+                    <div className={styles.iconEdit} onClick={() => {
+                      setFormData({ ...formData, accountNumber: acc.account_number, accountName: acc.account_name })
+                      setNickname(acc.account_name)
+                      goToEdit()
+                    }}>
+                      ✏️
+                    </div>
+                    <div className={styles.iconDelete}>🗑️</div>
+                    <div className={styles.accountCardContent}>
+                      <h2 className={styles.accountName}>{acc.account_name}</h2>
+                      <div className={styles.accountAvatar}>
+                        <Image
+                          src="/account-logo.png"
+                          alt="profile"
+                          width={100}
+                          height={100}
+                          style={{ objectFit: 'cover', borderRadius: '50%' }}
+                        />
+                      </div>
+                      <p className={styles.accountDetails}>
+                        {acc.account_number} <br />
+                        Balance: Rs. {Number(acc.balance).toLocaleString()}
+                      </p>
+                    </div>
                   </div>
-                  <p className={styles.accountDetails}>
-                    Nova Bank <br />
-                    Colombo 05
-                  </p>
-                </div>
-              </div>
+                ))
+              )}
 
               <button className={styles.addAccountCard} onClick={goToAdd}>
                 <h2 className={styles.addAccountTitle}>Add a Bank Account</h2>

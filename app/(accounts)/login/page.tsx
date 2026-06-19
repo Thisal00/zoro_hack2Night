@@ -1,7 +1,34 @@
+"use client"
+
 import Link from 'next/link'
 import AuthButton from '@/components/authButton'
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 
 export default function LoginPage() {
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const router = useRouter()
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      })
+      const data = await res.json()
+      if (res.ok && data.ok) {
+        router.push('/dashboard')
+      } else {
+        alert(data.message || 'Login failed')
+      }
+    } catch (err) {
+      alert('An error occurred during login')
+    }
+  }
+
   return (
     <section className="mx-auto flex min-h-[480px] w-full max-w-[1060px] overflow-hidden rounded-[56px] bg-white shadow-[0_1px_3px_0_rgba(0,0,0,0.30),0_4px_8px_3px_rgba(0,0,0,0.15)] lg:min-h-[660px]">
       <aside
@@ -25,7 +52,7 @@ export default function LoginPage() {
       </aside>
 
       <div className="flex flex-1 items-center justify-center bg-white px-8 py-10">
-        <div className="w-full max-w-[450px] text-center">
+        <form onSubmit={handleLogin} className="w-full max-w-[450px] text-center">
           <h1 className="mb-11 text-[2.45rem] font-bold text-black text-balance">
             LOGIN
           </h1>
@@ -42,8 +69,11 @@ export default function LoginPage() {
                 className="-translate-y-1/2 absolute left-8 top-1/2 size-6"
               />
               <input
+                suppressHydrationWarning
                 id="login-account"
                 placeholder="Account name"
+                value={username}
+                onChange={e => setUsername(e.target.value)}
                 className="h-[64px] w-full rounded-[40px] border-0 bg-[#d9d9d9] px-8 pl-20 text-lg text-black shadow-[0_1px_3px_0_rgba(0,0,0,0.30),0_4px_8px_3px_rgba(0,0,0,0.15)] outline-none transition-shadow placeholder:text-black/45 focus:shadow-[0_4px_4px_0_rgba(0,0,0,0.30),0_8px_12px_6px_rgba(0,0,0,0.15)]"
               />
             </div>
@@ -59,9 +89,12 @@ export default function LoginPage() {
                 className="-translate-y-1/2 absolute left-8 top-1/2 size-6"
               />
               <input
+                suppressHydrationWarning
                 id="login-password"
                 type="password"
                 placeholder="Password"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
                 className="h-[64px] w-full rounded-[40px] border-0 bg-[#d9d9d9] px-8 pl-20 text-lg text-black shadow-[0_1px_3px_0_rgba(0,0,0,0.30),0_4px_8px_3px_rgba(0,0,0,0.15)] outline-none transition-shadow placeholder:text-black/45 focus:shadow-[0_4px_4px_0_rgba(0,0,0,0.30),0_8px_12px_6px_rgba(0,0,0,0.15)]"
               />
             </div>
@@ -76,7 +109,7 @@ export default function LoginPage() {
             </Link>
           </div>
 
-          <AuthButton className="mt-8">SIGN IN</AuthButton>
+          <AuthButton type="submit" className="mt-8">SIGN IN</AuthButton>
 
           <p className="mt-6 text-sm font-bold text-black">
             Don`t have an account?
@@ -84,7 +117,7 @@ export default function LoginPage() {
           <Link href="/sign-up" className="text-2xl font-bold text-black">
             SIGN UP
           </Link>
-        </div>
+        </form>
       </div>
     </section>
   )

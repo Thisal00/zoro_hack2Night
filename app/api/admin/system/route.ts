@@ -13,7 +13,6 @@ export async function GET(request: Request) {
       ok: true,
       message: 'System overview.',
       cookies,
-      env: process.env,
       users: users.rows,
       accounts: accounts.rows,
       auditLogs: logs.rows

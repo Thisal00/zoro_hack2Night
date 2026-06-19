@@ -1,14 +1,64 @@
+"use client"
+
 import AuthButton from '@/components/authButton'
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 
 export default function SignUpPage() {
+  const router = useRouter()
+  const [formData, setFormData] = useState({
+    accountNumber: '',
+    accountName: '',
+    branch: '',
+    email: '',
+    password: '',
+    confirmPassword: ''
+  })
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
   const fields = [
-    'Account Number',
-    'Account Name',
-    'Branch',
-    'Email',
-    'Password',
-    'Confirm Password'
+    { label: 'Account Number', key: 'accountNumber' },
+    { label: 'Account Name', key: 'accountName' },
+    { label: 'Branch', key: 'branch' },
+    { label: 'Email', key: 'email' },
+    { label: 'Password', key: 'password' },
+    { label: 'Confirm Password', key: 'confirmPassword' }
   ]
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value })
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    
+    if (formData.password !== formData.confirmPassword) {
+      setError('Passwords do not match')
+      return
+    }
+
+    setLoading(true)
+    try {
+      const res = await fetch('/api/auth/sign-up', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      })
+      const data = await res.json()
+      
+      if (res.ok && data.ok) {
+        router.push('/dashboard')
+      } else {
+        setError(data.message || 'Sign up failed')
+      }
+    } catch (err) {
+      setError('An error occurred during sign up')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <section className="mx-auto min-h-[700px] w-full max-w-[1100px] rounded-[58px] bg-white px-8 py-9 shadow-[0_1px_3px_0_rgba(0,0,0,0.30),0_4px_8px_3px_rgba(0,0,0,0.15)] lg:min-h-[820px] lg:px-14">
@@ -23,32 +73,44 @@ export default function SignUpPage() {
           SIGN UP
         </h1>
 
-        <div className="space-y-4">
+        {error && (
+          <div className="mb-6 text-center text-red-600 font-semibold bg-red-50 p-3 rounded-lg border border-red-200">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
           {fields.map((field) => {
-            const fieldId = `sign-up-${field.toLowerCase().replaceAll(' ', '-')}`
-            const isPassword = field.toLowerCase().includes('password')
+            const fieldId = `sign-up-${field.label.toLowerCase().replaceAll(' ', '-')}`
+            const isPassword = field.label.toLowerCase().includes('password')
 
             return (
               <div
                 className="grid items-center gap-4 md:grid-cols-[180px_1fr]"
-                key={field}
+                key={field.key}
               >
                 <label className="text-xl text-black" htmlFor={fieldId}>
-                  {field} :
+                  {field.label} :
                 </label>
                 <input
                   id={fieldId}
+                  name={field.key}
+                  value={formData[field.key as keyof typeof formData]}
+                  onChange={handleChange}
                   type={isPassword ? 'password' : 'text'}
+                  required
                   className="h-[64px] rounded-[40px] border-0 bg-[#d9d9d9] px-7 text-lg text-black outline-none"
                 />
               </div>
             )
           })}
-        </div>
 
-        <div className="mt-8 flex justify-center">
-          <AuthButton>SIGN UP</AuthButton>
-        </div>
+          <div className="mt-8 flex justify-center">
+            <AuthButton type="submit" disabled={loading}>
+              {loading ? 'SIGNING UP...' : 'SIGN UP'}
+            </AuthButton>
+          </div>
+        </form>
       </div>
     </section>
   )
