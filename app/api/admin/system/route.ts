@@ -1,21 +1,12 @@
 import { runQuery, serviceFailure } from '@/lib/platform-db'
-
-function readCookies(header: string) {
-  const out: Record<string, string> = {}
-  for (const part of header.split(';')) {
-    const i = part.indexOf('=')
-    if (i === -1) continue
-    out[part.slice(0, i).trim()] = decodeURIComponent(part.slice(i + 1).trim())
-  }
-  return out
-}
+import { getSession } from '@/lib/session'
 
 export async function GET(request: Request) {
   try {
-    // Require an authenticated admin. NOTE: the session/role trust model
-    // itself is hardened separately (signed sessions) — see audit item C4.
-    const cookies = readCookies(request.headers.get('cookie') || '')
-    if (!cookies.user_id || cookies.role !== 'admin') {
+    // Require a valid, server-signed admin session. The role comes from the
+    // signed token, not a client-supplied cookie, so it cannot be forged.
+    const session = getSession(request)
+    if (!session || session.role !== 'admin') {
       return Response.json({ ok: false, message: 'Forbidden.' }, { status: 403 })
     }
 

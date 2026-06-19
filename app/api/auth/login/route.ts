@@ -1,4 +1,5 @@
 import { asText, runQuery, serviceFailure } from '@/lib/platform-db'
+import { buildSessionCookie, createSessionToken } from '@/lib/session'
 
 export async function POST(request: Request) {
   try {
@@ -26,16 +27,13 @@ export async function POST(request: Request) {
     }
 
     const user = result.rows[0]
+    const token = createSessionToken({ id: user.id, role: user.role })
     const headers = new Headers()
-    headers.append('set-cookie', `user_id=${user.id}; Path=/; SameSite=Lax`)
-    headers.append('set-cookie', `role=${user.role}; Path=/; SameSite=Lax`)
+    headers.append('set-cookie', buildSessionCookie(token))
 
     return Response.json(
       {
         ok: true,
-        token: Buffer.from(`${user.id}:${user.role}:session-token`).toString(
-          'base64'
-        ),
         user,
         sql
       },
